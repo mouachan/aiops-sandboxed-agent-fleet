@@ -143,16 +143,27 @@ up() {
   # Create concurrently so the agents bootstrap in parallel. Every sandbox gets a policy
   # (without one it never becomes Ready) and a main process that never exits
   # (`--detach -- sleep infinity`; a command that exits leaves the sandbox Completed).
+  # Concurrent creates in a namespace with a ResourceQuota (lab mode) can hit a transient
+  # 409 "Operation cannot be fulfilled on resourcequotas": retry those, nothing else.
+  create_one() {
+    local name="$1" pol="$2" try
+    for try in 1 2 3 4; do
+      openshell sandbox create --name "$name" --from "$IMAGE" --policy "$pol" \
+        "${provider_args[@]}" --env OPENCLAW_CHILD_OOM_SCORE_ADJ=0 \
+        --no-tty --detach -- sleep infinity </dev/null >"$WORK/${name}.create.log" 2>&1 && return 0
+      grep -q -E 'Conflict|code: 409' "$WORK/${name}.create.log" || return 1
+      [[ -n "$(phase_of "$name")" ]] && return 0
+      sleep $(( try * 3 ))
+    done
+    return 1
+  }
   for i in "${!NM[@]}"; do
     [[ "${NEW[i]}" == 1 ]] || continue
-    name="${NM[$i]}"
-    openshell sandbox create --name "$name" --from "$IMAGE" --policy "${POL[i]}" \
-      "${provider_args[@]}" --env OPENCLAW_CHILD_OOM_SCORE_ADJ=0 \
-      --no-tty --detach -- sleep infinity </dev/null >"$WORK/${name}.create.log" 2>&1 &
+    create_one "${NM[$i]}" "${POL[i]}" &
   done
   echo "   …creating; waiting for each to reach phase Ready (they bootstrap concurrently)…"
 
-  local deadline=$(( SECONDS + READY_TIMEOUT ))
+  local deadline=$(( SECONDS + READY_TIMEOUT )) failed=0
   for i in "${!NM[@]}"; do
     name="${NM[$i]}"
     ph="$(phase_of "$name")"
@@ -162,6 +173,7 @@ up() {
     if [[ "$ph" != "Ready" ]]; then
       echo "   ✗ ${name} not Ready (phase: ${ph:-none}) — create log:"
       tail -6 "$WORK/${name}.create.log" 2>/dev/null | quiet | sed 's/^/       /'
+      failed=$(( failed + 1 ))
       continue
     fi
     # (Re-)apply the policy: also refreshes the registry host / backend of a reused sandbox.
@@ -231,6 +243,10 @@ up() {
   local pid
   for pid in $(jobs -p); do kill "$pid" 2>/dev/null || true; done
   wait 2>/dev/null || true
+  if (( failed > 0 )); then
+    echo "✗ ${failed} agent(s) not Ready — re-run: fleet.sh up ${spec} (Ready agents are kept)"
+    return 1
+  fi
   echo "Done. Run './scripts/fleet.sh status' (or open the Fleet page in the workshop)."
 }
 

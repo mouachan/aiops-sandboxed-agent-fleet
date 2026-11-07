@@ -68,7 +68,7 @@ oc login https://api.<cluster-domain>:6443 -u <admin-user>
 
 ## 3. Build the workshop image (optional)
 
-The chart default, `quay.io/mouachan/nemoclaw-workshop:v0.3.1`, is built from this repository: nothing to build. Rebuild the image
+The chart default, `quay.io/mouachan/nemoclaw-workshop:v0.3.2`, is built from this repository: nothing to build. Rebuild the image
 only if you change the web app or the lessons, then point `WORKSHOP_IMAGE` at it.
 
 **Option A — in the cluster (no local container runtime, native amd64):**

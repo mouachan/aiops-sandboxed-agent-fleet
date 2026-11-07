@@ -60,7 +60,7 @@ helm template nemoclaw chart/ -n user01-openshell -f chart/values.yaml -f chart/
 podman build --platform linux/amd64 -f web/Dockerfile -t <registry>/nemoclaw-workshop:<tag> .   # from repo root
 podman build --build-arg OPENCLAW_VERSION=2026.8.2 images/openclaw-sandbox                      # sandbox image
 ```
-The chart default workshop image, `quay.io/mouachan/nemoclaw-workshop:v0.3.1`, is built from this repository. Rebuild it and set `WORKSHOP_IMAGE` only when you change the web app or the lessons. An in-cluster BuildConfig alternative is in `docs/ADMIN-GUIDE.md` §3.
+The chart default workshop image, `quay.io/mouachan/nemoclaw-workshop:v0.3.2`, is built from this repository. Rebuild it and set `WORKSHOP_IMAGE` only when you change the web app or the lessons. An in-cluster BuildConfig alternative is in `docs/ADMIN-GUIDE.md` §3.
 
 ### Shell scripts (all of `scripts/` incl. `lab.sh`, `lab-smoke.sh`, `maas.sh`)
 ```bash
