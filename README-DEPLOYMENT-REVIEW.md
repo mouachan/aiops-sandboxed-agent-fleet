@@ -549,8 +549,9 @@ That image is published as `quay.io/mouachan/nemoclaw-workshop:v0.3.0` and is no
 ### 5.10 Follow-ups and 25 attendees (RHDP cluster, existing MaaS)
 
 The lab was scaled to 25 attendees on the cluster of §5.8 (10 × m5a.8xlarge workers), still on its
-MaaS. Every attendee now runs the same image, `quay.io/mouachan/nemoclaw-workshop:v0.3.1`; before,
-the 20 attendees ran three different in-cluster builds.
+MaaS. Every attendee now runs the same image, `quay.io/mouachan/nemoclaw-workshop:v0.3.2`; before,
+the 20 attendees ran three different in-cluster builds. The five new attendees got their own MaaS key,
+each created as the matching RHDP user on that user's subscription.
 
 | Follow-up | Change | Verified |
 |---|---|---|
@@ -560,15 +561,21 @@ the 20 attendees ran three different in-cluster builds.
 | Terminal bridge | A failed PTY spawn no longer crashes the server or leaks a session slot; `postinstall` fixes node-pty's macOS `spawn-helper` | smoke 15/15 (gate on), 11/11 (gate off) |
 | OTEL release name | `15-observability.sh` reuses the release that already owns the collector (`otel-collector` on this cluster) | `lab.sh shared` exit 0 (it stopped before the prepull DaemonSet before) |
 | Image publishing | `build-workshop.yml` publishes to `quay.io/mouachan` by default | — |
+| Missing fleet agent (found here) | Concurrent sandbox creates hit a transient 409 on the namespace ResourceQuota (`Operation cannot be fulfilled on resourcequotas "lab-quota"`). One agent was missing while `lab.sh fleet` reported success. `fleet.sh` now retries that conflict and exits non-zero when an agent is not Ready (image v0.3.2) | 25/25 attendees with 5/5 agents |
 | ESLint 10 | **Not done.** `eslint-config-next` 16.4.5 (and 16.5 canary) depends on `eslint-plugin-react` 7.37.5, `eslint-plugin-import` 2.32.0 and `eslint-plugin-jsx-a11y` 6.10.2, which all cap at `eslint ^9` | — |
 
 Results:
 
 - `lab.sh shared`, then `lab.sh up 25 -P 5`: 25/25 attendees deployed, all 25 workshop pods on the
-  same digest, `lab-smoke.sh`: **all 25 healthy**.
-- Attendee URLs and access tokens of `user01`–`user20` are unchanged by the redeploy.
-- Read-only e2e on an existing attendee: **81 passed, 0 failed** (21 mutating lesson steps skipped);
-  isolation against a neighbour: **16 passed, 0 failed, 1 skipped**.
+  same digest, `lab-smoke.sh`: **all 25 healthy**, every attendee with its 5 fleet agents.
+- A redeploy keeps the attendee URLs and access tokens. The five attendees that still had test
+  sandboxes from the dry run were reset (`lab.sh down`, `up`, `fleet`): their tokens are new.
+- Read-only e2e on an existing attendee: **81 passed, 0 failed** (mutating lesson steps skipped).
+- Full lesson flow on a fresh attendee: **102 passed, 0 failed, 0 skipped**; isolation against a
+  neighbour, including the mutating Grafana probe: **18 passed, 0 failed, 0 skipped**.
+- Incident Lab on that attendee: right root cause (payments scaled to 0, `ECONNREFUSED` in logs and
+  traces) and right action in 135 s (metrics agent 120 s, the others about 20 s); healthy again about
+  40 s after the fix. The attendee was then reset.
 - Capacity: 135 EBS attachments with 20 attendees and their fleets, against 260 on the 10 workers
   (26 each). 25 attendees with their own sandboxes need about 200.
 
