@@ -72,8 +72,13 @@ oc wait tempostack --all -n observability-hub --for=condition=Ready --timeout=10
 oc wait lokistack --all -n openshift-logging --for=condition=Ready --timeout=10m
 
 # --- deploy OTEL Collector ---
-log "Deploying OTEL Collector"
-helm upgrade --install otel "$REPO_ROOT/deploy/observability/otel-collector/" \
+# Reuse the release that already owns the collector (an earlier install may have named it
+# otel-collector): Helm refuses to adopt objects owned by another release.
+OTEL_RELEASE="${OTEL_RELEASE:-$(oc -n observability-hub get serviceaccount otel-collector \
+  -o jsonpath='{.metadata.annotations.meta\.helm\.sh/release-name}' 2>/dev/null || true)}"
+OTEL_RELEASE="${OTEL_RELEASE:-otel}"
+log "Deploying OTEL Collector (release ${OTEL_RELEASE})"
+helm upgrade --install "$OTEL_RELEASE" "$REPO_ROOT/deploy/observability/otel-collector/" \
   -n observability-hub \
   --wait --timeout 5m
 

@@ -266,11 +266,11 @@ oc get crd sandboxes.agents.x-k8s.io -o jsonpath='{.spec.versions[*].name}'   # 
    `oc delete namespace openshell demo`. Lab mode does not use these namespaces.
 2. **Old agent-sandbox (`v1alpha1` only):** set `AGENT_SANDBOX_MIGRATE=1` for the first `lab.sh up`. It
    replaces it with v1.0.3 and **deletes every Sandbox in the cluster**. Remove the flag afterwards.
-3. **Observability installed under other release names** (for example the OTEL collector as
-   `otel-collector` instead of `otel`): Helm refuses to take over objects owned by another release.
-   Either upgrade that release with this chart
-   (`helm upgrade --install otel-collector deploy/observability/otel-collector -n observability-hub`) and
-   run `lab.sh` with `LAB_SKIP_OBSERVABILITY=1`, or uninstall it first.
+3. **Observability installed under other release names:** Helm refuses to take over objects owned by
+   another release. The OTEL collector is handled for you: `15-observability.sh` reuses the release
+   that already owns it (for example `otel-collector` instead of `otel`; force one with `OTEL_RELEASE`).
+   For the other components, upgrade the existing release with this repository's chart and run
+   `lab.sh` with `LAB_SKIP_OBSERVABILITY=1`, or uninstall it first.
 4. **Grafana from an older install:** if the new Grafana fails with
    `Datasource provisioning error: data source not found`, reset its volume (Troubleshooting, §9).
 
