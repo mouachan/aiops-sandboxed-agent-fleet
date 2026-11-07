@@ -13,7 +13,7 @@ intentionally omitted.
 ### Goal
 
 Run the workshop as a **hands-on lab for 30 attendees on a single OpenShift cluster**, within about two
-weeks.
+weeks. The final lab has **25 attendees** on the RHDP cluster of §5.8, with its existing MaaS (§5.10).
 
 ### Test environments
 
@@ -546,13 +546,38 @@ Validation on a fresh attendee with the fixed image:
 
 That image is published as `quay.io/mouachan/nemoclaw-workshop:v0.3.0` and is now the chart default.
 
+### 5.10 Follow-ups and 25 attendees (RHDP cluster, existing MaaS)
+
+The lab was scaled to 25 attendees on the cluster of §5.8 (10 × m5a.8xlarge workers), still on its
+MaaS. Every attendee now runs the same image, `quay.io/mouachan/nemoclaw-workshop:v0.3.1`; before,
+the 20 attendees ran three different in-cluster builds.
+
+| Follow-up | Change | Verified |
+|---|---|---|
+| Legacy lesson path | Lessons, `labrc`, the entrypoint and the e2e suite use `~/workshop` | e2e "instance environment" and read-only lesson blocks |
+| Tempo Jaeger UI | `jaegerQuery.enabled: false` (deprecated since tempo-operator 0.22.0) | TempoStack Ready; Tempo search through the gateway HTTP 200 with traces; Jaeger API HTTP 404 |
+| Google Fonts | Self-hosted with `next/font` (no request from the attendees' browsers) | lint: 0 problems |
+| Terminal bridge | A failed PTY spawn no longer crashes the server or leaks a session slot; `postinstall` fixes node-pty's macOS `spawn-helper` | smoke 15/15 (gate on), 11/11 (gate off) |
+| OTEL release name | `15-observability.sh` reuses the release that already owns the collector (`otel-collector` on this cluster) | `lab.sh shared` exit 0 (it stopped before the prepull DaemonSet before) |
+| Image publishing | `build-workshop.yml` publishes to `quay.io/mouachan` by default | — |
+| ESLint 10 | **Not done.** `eslint-config-next` 16.4.5 (and 16.5 canary) depends on `eslint-plugin-react` 7.37.5, `eslint-plugin-import` 2.32.0 and `eslint-plugin-jsx-a11y` 6.10.2, which all cap at `eslint ^9` | — |
+
+Results:
+
+- `lab.sh shared`, then `lab.sh up 25 -P 5`: 25/25 attendees deployed, all 25 workshop pods on the
+  same digest, `lab-smoke.sh`: **all 25 healthy**.
+- Attendee URLs and access tokens of `user01`–`user20` are unchanged by the redeploy.
+- Read-only e2e on an existing attendee: **81 passed, 0 failed** (21 mutating lesson steps skipped);
+  isolation against a neighbour: **16 passed, 0 failed, 1 skipped**.
+- Capacity: 135 EBS attachments with 20 attendees and their fleets, against 260 on the 10 workers
+  (26 each). 25 attendees with their own sandboxes need about 200.
+
 ## 6. Known limitations and follow-ups
 
-- **EBS attachments are the binding constraint for 30 attendees.** Each sandbox has a 2 Gi EBS workspace: about 8 volumes per attendee, against about 26 per AWS node. Add lab nodes (ADMIN-GUIDE §8).
-- **GPU capacity.** One L40S keeps an estimated 100–150 agent requests in flight. Use 2 GPU replicas for 30 attendees and stagger the Incident Lab.
-- **Workshop image.** Published as `quay.io/mouachan/nemoclaw-workshop:v0.3.0` (public, amd64) from the validated build, and set as the
-  chart default. To move it to the project's own registry, publish with `build-workshop.yml`
-  (`vars.WORKSHOP_IMAGE_REPO`) and update `chart/values.yaml`.
-- **eslint 9 is end-of-life upstream.** Moving to eslint 10 is future work.
-- **Tempo `jaegerQuery`.** Deprecated in Tempo 3.11 but kept: nothing in the repo uses it, and removing it is untested.
-- **Legacy lesson path.** Lessons still use `~/nemoclaw-openshift-launchable`. The entrypoint keeps it working through a symlink, so this is cosmetic only.
+- **EBS attachments bind first on AWS.** Each sandbox has a 2 Gi EBS workspace: about 8 volumes per
+  attendee, against about 26 per node. 25 attendees fit on 10 workers (§5.10); plan 10+ lab nodes for 30
+  (ADMIN-GUIDE §8).
+- **GPU capacity (self-hosted MaaS only).** One L40S keeps an estimated 100–150 agent requests in
+  flight. Use 2 GPU replicas for 30 attendees and stagger the Incident Lab. A cluster with an external
+  MaaS is limited by that server instead.
+- **ESLint 10** waits for `eslint-config-next`'s plugins to support it (§5.10).
