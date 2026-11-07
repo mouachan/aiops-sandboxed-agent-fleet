@@ -5,7 +5,7 @@ Out of the box your agent can *reason*, but it can't *look things up* — it has
 Search means the agent's `node` process reaches DuckDuckGo's hosts. Our sandbox policy has a dedicated rule for exactly that — look at the `websearch` block:
 
 ```bash
-cd ~/nemoclaw-openshift-launchable
+cd ~/workshop
 sed -n '/^  websearch:/,$p' policies/openclaw-sandbox.yaml
 ```
 

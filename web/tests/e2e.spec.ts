@@ -143,7 +143,7 @@ test.describe("Instance environment", () => {
 
   test("lab shell (BASH_ENV=labrc) exports the namespaces of /api/lab", async ({ request }) => {
     const lab = await getLab(request);
-    const r = await runInLab(request, 'printf "%s %s %s" "$OPENSHELL_NS" "$DEMO_NS" "$(cd ~/nemoclaw-openshift-launchable && pwd -P)"');
+    const r = await runInLab(request, 'printf "%s %s %s" "$OPENSHELL_NS" "$DEMO_NS" "$(cd ~/workshop && pwd -P)"');
     expect(r.exitCode, r.stderr).toBe(0);
     expect(r.stdout).toBe(`${lab.openshellNamespace} ${lab.demoNamespace} /app`);
   });

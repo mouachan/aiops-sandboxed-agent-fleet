@@ -41,8 +41,8 @@ if [[ "$OPENSHELL_NAMESPACE" != "openshell" ]]; then
   )
 fi
 
-# --- compatibility path used by the lessons + fleet scripts ------------------------------------
-ln -sfn "$APP_DIR" "$HOME/nemoclaw-openshift-launchable" 2>/dev/null || true
+# --- ~/workshop → /app: the path the lessons use (policies, manifests, scripts, .env) -----------
+ln -sfn "$APP_DIR" "$HOME/workshop" 2>/dev/null || true
 
 # --- inference (OpenShell 0.1.6 provider profile) ----------------------------------------------
 # The sandbox never receives the real key: a provider of type maas-openai (created from this

@@ -17,7 +17,7 @@ In a facilitated multi-user lab your <code>.env</code> already holds your endpoi
 Open the workshop's `.env` in an editor:
 
 ```bash
-cd ~/nemoclaw-openshift-launchable
+cd ~/workshop
 nano .env        # or: vi .env
 ```
 
@@ -34,7 +34,7 @@ Save and exit (in `nano`: <kbd>Ctrl-O</kbd>, <kbd>Enter</kbd>, <kbd>Ctrl-X</kbd>
 ## Step 2 — Load them into your shell
 
 ```bash
-cd ~/nemoclaw-openshift-launchable
+cd ~/workshop
 set -a; . .env; set +a
 echo "URL=$NEMOCLAW_INFERENCE_BASE_URL  MODEL=$NEMOCLAW_MODEL  KEY=${NEMOCLAW_API_KEY:0:6}…"
 ```

@@ -5,7 +5,7 @@ Spin up the throwaway sandbox. `--from` picks the sandbox image — the pinned O
 ```bash
 openshell sandbox create --name lab --no-tty \
   --from "$OPENCLAW_SANDBOX_IMAGE" \
-  --policy ~/nemoclaw-openshift-launchable/policies/openclaw-sandbox.yaml \
+  --policy ~/workshop/policies/openclaw-sandbox.yaml \
   --detach -- sleep infinity
 ```
 

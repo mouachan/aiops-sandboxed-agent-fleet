@@ -16,8 +16,8 @@ export REGISTRY_HOST="${REGISTRY_HOST:-registry.${OPENSHELL_NS}.svc.cluster.loca
 # `cluster` gateway (entrypoint.sh) instead.
 unset OPENSHELL_GATEWAY_ENDPOINT
 
-# --- workshop files: ~/nemoclaw-openshift-launchable → /app (policies, manifests, scripts, .env)
-export LAB_HOME="$HOME/nemoclaw-openshift-launchable"
+# --- workshop files: ~/workshop → /app (policies, manifests, scripts, .env)
+export LAB_HOME="$HOME/workshop"
 [[ -e "$LAB_HOME" ]] || ln -sfn "${LAB_CWD:-/app}" "$LAB_HOME" 2>/dev/null || true
 
 # --- agent defaults

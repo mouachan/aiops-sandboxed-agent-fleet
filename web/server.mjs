@@ -205,14 +205,23 @@ server.on("upgrade", (req, socket, head) => {
       ws.close();
       return;
     }
+    let shell;
+    try {
+      shell = pty.spawn("/bin/bash", ["--rcfile", LAB_RC, "-i"], {
+        name: "xterm-256color",
+        cols: 100,
+        rows: 28,
+        cwd: LAB_CWD,
+        env: shellEnv({ TERM: "xterm-256color", OCLAW_LAB: "1" }),
+      });
+    } catch (err) {
+      // A failed spawn must not crash the server or leak a session slot.
+      console.error("lab shell spawn failed:", err?.message || err);
+      ws.send("\r\n\x1b[31mCould not start the lab shell. Reload the page to retry.\x1b[0m\r\n");
+      ws.close();
+      return;
+    }
     sessions++;
-    const shell = pty.spawn("/bin/bash", ["--rcfile", LAB_RC, "-i"], {
-      name: "xterm-256color",
-      cols: 100,
-      rows: 28,
-      cwd: LAB_CWD,
-      env: shellEnv({ TERM: "xterm-256color", OCLAW_LAB: "1" }),
-    });
     const onData = (d) => { if (ws.readyState === ws.OPEN) ws.send(d); };
     shell.onData(onData);
     shell.onExit(() => ws.readyState === ws.OPEN && ws.close());

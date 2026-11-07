@@ -4,8 +4,8 @@
 
 ### A fleet of sandboxed AI agents that investigates a real incident, and a hands-on lab to build it yourself
 
-[![CI](https://github.com/rh-ai-quickstart/aiops-sandboxed-agent-fleet/actions/workflows/ci.yml/badge.svg)](https://github.com/rh-ai-quickstart/aiops-sandboxed-agent-fleet/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/github/license/rh-ai-quickstart/aiops-sandboxed-agent-fleet)](LICENSE)
+[![CI](https://github.com/mouachan/aiops-sandboxed-agent-fleet/actions/workflows/ci.yml/badge.svg)](https://github.com/mouachan/aiops-sandboxed-agent-fleet/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/github/license/mouachan/aiops-sandboxed-agent-fleet)](LICENSE)
 ![OpenShift](https://img.shields.io/badge/OpenShift-4.19%2B-ee0000?logo=redhatopenshift&logoColor=white)
 ![OpenShell](https://img.shields.io/badge/OpenShell-0.1.6-76b900?logo=nvidia&logoColor=white)
 ![OpenClaw](https://img.shields.io/badge/OpenClaw-2026.8.2-76b900)
@@ -200,7 +200,7 @@ sequenceDiagram
 | GPU | none | 1× 48 GB GPU per replica (AWS `g6e.2xlarge`) | none on the lab side |
 | Setup | three lines in `.env` | `scripts/maas.sh up` (~30–45 min), then `maas.sh keys` / `maas.sh env` | [Admin guide §4](docs/ADMIN-GUIDE.md#using-an-openshift-ai-maas-that-already-exists-on-the-cluster): one key per user |
 
-**2. Workshop image:** nothing to build. The chart default, `quay.io/mouachan/nemoclaw-workshop:v0.3.0`, is built from this repository; rebuild it only if you change the web app or the lessons ([Deploy in detail](#-deploy-in-detail)).
+**2. Workshop image:** nothing to build. The chart default, `quay.io/mouachan/nemoclaw-workshop:v0.3.1`, is built from this repository; rebuild it only if you change the web app or the lessons ([Deploy in detail](#-deploy-in-detail)).
 
 **3. Deploy**
 
@@ -316,7 +316,7 @@ The scripts also read `ingresses.config/cluster` to detect the `*.apps` domain; 
 
 ## 🛠️ Deploy in detail
 
-**1. Workshop image (optional).** The chart default, `quay.io/mouachan/nemoclaw-workshop:v0.3.0`, is built from this repository. Rebuild it from `web/Dockerfile` only if you change the web app or the lessons, then set `WORKSHOP_IMAGE`.
+**1. Workshop image (optional).** The chart default, `quay.io/mouachan/nemoclaw-workshop:v0.3.1`, is built from this repository. Rebuild it from `web/Dockerfile` only if you change the web app or the lessons, then set `WORKSHOP_IMAGE`.
 
 In the cluster, with no local container runtime:
 
@@ -405,7 +405,7 @@ All configuration goes through `.env`, which `deploy.sh`, `lab.sh` and `maas.sh`
 | `OPENCLAW_GATEWAY_PASSWORD` | `openclaw` | OpenClaw Control UI password (lab mode generates one per attendee) |
 | `MONITORING_GRAFANA_PASSWORD` | `openclaw` (lab: generated) | Grafana admin password |
 | `GHCR_USER` / `GHCR_TOKEN` | anonymous | GitHub PAT with `read:packages`, avoids ghcr.io throttling on the multi-GB sandbox image |
-| `WORKSHOP_IMAGE` | `quay.io/mouachan/nemoclaw-workshop:v0.3.0` | Override only when you rebuild the image |
+| `WORKSHOP_IMAGE` | `quay.io/mouachan/nemoclaw-workshop:v0.3.1` | Override only when you rebuild the image |
 | `OPENCLAW_SANDBOX_IMAGE` | `ghcr.io/ansjindal/openclaw-sandbox:2026.8.2` | OpenClaw sandbox image (`images/openclaw-sandbox`) |
 | `AGENT_SANDBOX_VERSION` | `v1.0.3` | agent-sandbox release applied when none is installed |
 | `AGENT_SANDBOX_MIGRATE` | `0` | `1` replaces an old `v1alpha1`-only install. **Deletes ALL Sandboxes cluster-wide.** |

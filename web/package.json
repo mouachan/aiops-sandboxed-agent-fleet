@@ -13,7 +13,8 @@
     "test": "playwright test --project=smoke",
     "test:e2e": "node -e \"if(!process.env.E2E_BASE_URL){console.error('Set E2E_BASE_URL=https://workshop-<namespace>.<cluster-apps-domain>');process.exit(1)}\" && playwright test --project=e2e",
     "test:isolation": "node -e \"if(!process.env.E2E_BASE_URL||!process.env.E2E_PEER_NAMESPACE_PREFIX){console.error('Set E2E_BASE_URL, E2E_ACCESS_TOKEN and E2E_PEER_NAMESPACE_PREFIX (e.g. user30)');process.exit(1)}\" && playwright test --project=isolation",
-    "test:ui": "playwright test --ui"
+    "test:ui": "playwright test --ui",
+    "postinstall": "node -e \"const fs=require('fs');for(const a of ['arm64','x64']){const f='node_modules/node-pty/prebuilds/darwin-'+a+'/spawn-helper';if(fs.existsSync(f))fs.chmodSync(f,0o755)}\""
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.14.7",

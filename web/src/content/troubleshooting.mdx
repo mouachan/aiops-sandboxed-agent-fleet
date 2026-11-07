@@ -36,7 +36,7 @@ oc -n "$OPENSHELL_NS" get sandboxes,pods
 ```bash-ref
 openshell sandbox delete shifty
 openshell sandbox create --name shifty --from "$OPENCLAW_SANDBOX_IMAGE" \
-  --policy ~/nemoclaw-openshift-launchable/policies/openclaw-sandbox.yaml \
+  --policy ~/workshop/policies/openclaw-sandbox.yaml \
   --provider "$NEMOCLAW_INFERENCE_PROVIDER" --no-tty --detach -- sleep infinity
 ```
 

@@ -17,7 +17,7 @@ You want `Status: Connected` and a version. The endpoint is the gateway's in-clu
 OpenShell is **deny-by-default**: a brand-new sandbox can reach **nothing** on the network. You grant access with a *policy* file. Read the template the repo ships:
 
 ```bash
-cd ~/nemoclaw-openshift-launchable
+cd ~/workshop
 cat policies/openclaw-sandbox.yaml
 ```
 
@@ -59,7 +59,7 @@ One command creates the agent. Let's read each flag, then run it:
 ```bash
 openshell sandbox create --name shifty \
   --from "$OPENCLAW_SANDBOX_IMAGE" \
-  --policy ~/nemoclaw-openshift-launchable/policies/openclaw-sandbox.yaml \
+  --policy ~/workshop/policies/openclaw-sandbox.yaml \
   --provider "$NEMOCLAW_INFERENCE_PROVIDER" \
   --no-tty --detach -- sleep infinity
 ```

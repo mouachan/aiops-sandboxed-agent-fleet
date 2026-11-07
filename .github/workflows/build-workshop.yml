@@ -1,7 +1,7 @@
 name: Build workshop image
 
 # Builds web/Dockerfile and pushes it to the repository the chart uses by default
-# (chart/values.yaml workshop.image = quay.io/mmurakam/nemoclaw-workshop). Configurable:
+# (chart/values.yaml workshop.image = quay.io/mouachan/nemoclaw-workshop). Configurable:
 #   - repository variable WORKSHOP_IMAGE_REPO (e.g. ghcr.io/<owner>/nemoclaw-workshop), or
 #     the `image_repo` input of a manual run;
 #   - credentials: ghcr.io uses GITHUB_TOKEN; any other registry needs the secrets
@@ -19,7 +19,7 @@ on:
         default: ""
 
 env:
-  IMAGE_REPO: ${{ inputs.image_repo || vars.WORKSHOP_IMAGE_REPO || 'quay.io/mmurakam/nemoclaw-workshop' }}
+  IMAGE_REPO: ${{ inputs.image_repo || vars.WORKSHOP_IMAGE_REPO || 'quay.io/mouachan/nemoclaw-workshop' }}
 
 jobs:
   build-and-push:

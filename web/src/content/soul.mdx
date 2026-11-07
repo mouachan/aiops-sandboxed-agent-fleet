@@ -84,7 +84,7 @@ Delete this file — you don't need a kickoff script once you're in flow.
 The agent you built by hand started **blank** — that's why it greeted you with a generic "who are you?" instead of as Shifty. Let's give it the persona now by staging the workshop's seed files (`manifests/openclaw/workspace-seed/`) into its workspace. Run this in the lab shell:
 
 ```bash
-cd ~/nemoclaw-openshift-launchable
+cd ~/workshop
 for f in manifests/openclaw/workspace-seed/*.md; do
   b=$(base64 -w0 < "$f")
   openshell sandbox exec -n shifty -- sh -c "mkdir -p /sandbox/.openclaw/workspace && echo $b | base64 -d > /sandbox/.openclaw/workspace/$(basename "$f")"

@@ -12,7 +12,7 @@ echo "inside the sandbox, OPENAI_API_KEY=$PH"
 You'll see something like `openshell:resolve:env:v<revision>_OPENAI_API_KEY` — a placeholder, useless outside this sandbox. Note the **revision**: the gateway re-issues the placeholder whenever the provider changes (a rotated key, for example), and an old one eventually stops resolving. So we don't copy it into OpenClaw's config: the config says `${OPENAI_API_KEY}`, and OpenClaw substitutes the sandbox's current placeholder each time it starts. We build the config on the host, then stage it **into the sandbox** — and because the agent is Landlock-confined, we write it through `openshell sandbox exec` (base64, since exec doesn't take multi-line args):
 
 ```bash
-cd ~/nemoclaw-openshift-launchable
+cd ~/workshop
 set -a; . .env; set +a
 PW="${OPENCLAW_GATEWAY_PASSWORD:-openclaw}"
 PH=$(openshell sandbox exec -n shifty -- sh -c 'printf %s "$OPENAI_API_KEY"')

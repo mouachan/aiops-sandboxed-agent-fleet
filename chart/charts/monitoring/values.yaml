@@ -69,7 +69,7 @@ endpoints:
   tempo:
     url: "https://tempo-tempostack-gateway.observability-hub.svc.cluster.local:8080"
     # The gateway serves the Tempo query API under /api/traces/v1/<tenant>/tempo
-    # (/api/traces/v1/<tenant>/ itself proxies the Jaeger UI/API, not the Tempo API).
+    # (/api/traces/v1/<tenant>/ is the Jaeger UI/API, disabled in deploy/observability/tempo).
     tenantPath: "/api/traces/v1/dev/tempo"
 
 # Wrapper-level settings

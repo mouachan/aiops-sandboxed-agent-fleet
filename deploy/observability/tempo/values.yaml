@@ -35,10 +35,11 @@ tempoStack:
     gateway:
       enabled: true
     queryFrontend:
+      # Jaeger UI/API off: deprecated since tempo-operator 0.22.0 (webhook warning). Grafana, the
+      # workshop, the fleet and the COO tracing UI all query the Tempo API through the gateway
+      # (/api/traces/v1/<tenant>/tempo/api/...).
       jaegerQuery:
-        enabled: true
-        # ingress:
-        #   type: route
+        enabled: false
 
 # S3 storage configuration (shared RustFS instance from deploy/observability/object-storage/)
 s3:
