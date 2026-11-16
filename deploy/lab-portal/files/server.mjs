@@ -190,6 +190,7 @@ const CSS = `
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 "Red Hat Text",system-ui,-apple-system,"Segoe UI",sans-serif}
 main{max-width:640px;margin:0 auto;padding:24px 16px 48px}
+main.wide{max-width:980px}
 header{display:flex;align-items:center;gap:10px;margin-bottom:20px;color:var(--muted);font-weight:600}
 header .dot{width:12px;height:12px;border-radius:50%;background:var(--accent)}
 h1{font-size:1.6rem;line-height:1.25;margin:0 0 8px}
@@ -216,12 +217,17 @@ table{width:100%;border-collapse:collapse;font-size:.9rem}
 th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
 .table{overflow-x:auto}
 td form{margin:0}
-td.mono,td.nowrap{white-space:nowrap;overflow-wrap:normal}`;
+td.mono,td.nowrap{white-space:nowrap;overflow-wrap:normal}
+td.mono{background:none;padding:6px 8px;font-weight:600}
+th{white-space:nowrap;font-size:.8rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+tr.assigned td{background:var(--ok-bg)}
+td.act{text-align:right;width:1%}
+td.act form{display:inline}`;
 
-function page(title, body, heading) {
+function page(title, body, heading, { wide = false } = {}) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
-<title>${esc(title)}</title><style>${CSS}</style></head><body><main>
+<title>${esc(title)}</title><style>${CSS}</style></head><body><main${wide ? ' class="wide"' : ""}>
 <header><span class="dot"></span><span>${esc(heading)}</span></header>
 ${body}
 </main></body></html>`;
@@ -307,8 +313,8 @@ function adminPage(cfg, host, registry, attendees, pool, notice) {
     if (a && !attendees.has(u)) status = "assigned, not in attendees.csv";
     const release = a ? `<form method="post" action="/admin/release"><input type="hidden" name="user" value="${esc(u)}">
 <button class="btn small" type="submit">Release</button></form>` : "";
-    return `<tr><td class="mono">${esc(u)}</td><td>${esc(status)}</td><td>${esc(a?.email)}</td>
-<td class="muted nowrap">${esc(a?.at?.replace("T", " ").slice(0, 16))}</td><td>${release}</td></tr>`;
+    return `<tr${a ? ' class="assigned"' : ""}><td class="mono">${esc(u)}</td><td>${esc(status)}</td><td>${esc(a?.email)}</td>
+<td class="muted nowrap">${esc(a?.at?.replace("T", " ").slice(0, 16))}</td><td class="act">${release}</td></tr>`;
   }).join("\n");
   const taken = pool.filter((u) => assigned[u]).length;
   return page(`Admin · ${cfg.title}`, `
@@ -326,7 +332,7 @@ ${notice ? `<div class="alert ok">${esc(notice)}</div>` : ""}
 <tbody>${rows}</tbody></table></section>
 <p class="muted">Release frees an environment for the next attendee (the attendee's own link stops working). It does
 not reset the environment itself: run <code>scripts/lab.sh user userNN</code> or <code>lab.sh down</code> + redeploy for that.</p>`,
-  cfg.title);
+  cfg.title, { wide: true });
 }
 
 // --------------------------------------------------------------------------------------
