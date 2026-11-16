@@ -8,28 +8,13 @@ Your agent needs a **brain** — somewhere to send its thinking. It talks to an 
 We don't paste the key into the agent. Instead we register the endpoint + key with the <strong>gateway</strong> as a <em>provider</em>, described by a <em>provider profile</em> (which host, which port, which binaries, how the credential is sent). When a sandbox is created with that provider attached, the agent only gets a <strong>placeholder</strong> in <code>$OPENAI_API_KEY</code> (it looks like <code>openshell:resolve:env:v&lt;revision&gt;_OPENAI_API_KEY</code>). The sandbox <strong>supervisor</strong> swaps the placeholder for the real key on egress — only toward the endpoint the profile allows, and only from the binaries it lists. So the agent <strong>never holds your key</strong>, and a leaked placeholder is worthless anywhere else.
 </Callout>
 
-<Callout type="rh" title="Shared lab? This is already done for you">
-In a facilitated multi-user lab your <code>.env</code> already holds your endpoint, model and personal key, and the gateway provider is registered. <strong>Skip Step 1</strong> (don't edit anything), then run Step 2 and Step 3 to check it works. The provider commands after that are idempotent: run them to see each piece, nothing breaks.
+<Callout type="rh" title="Already set up for you">
+Your endpoint, model and personal API key are already in your <code>.env</code>, and the gateway provider is registered. Run the steps below to see each piece and check that it works: the provider commands are idempotent, nothing breaks.
 </Callout>
 
-## Step 1 — Put your values in `.env` (your own deployment only)
+## Step 1 — Your values are already in `.env`
 
-**In this lab your values are already filled in: skip to Step 2.** On your own deployment, open the workshop's `.env` in an editor:
-
-```bash
-cd ~/workshop
-nano .env        # or: vi .env
-```
-
-Set these three lines (replace the values with your own):
-
-```bash-ref
-NEMOCLAW_INFERENCE_BASE_URL=https://api.example.com/v1
-NEMOCLAW_MODEL=your-model-id
-NEMOCLAW_API_KEY=your-api-key-here
-```
-
-Save and exit (in `nano`: <kbd>Ctrl-O</kbd>, <kbd>Enter</kbd>, <kbd>Ctrl-X</kbd>).
+Nothing to edit: your endpoint, model and personal API key are already in `~/workshop/.env`. The next step loads them into your shell.
 
 ## Step 2 — Load them into your shell
 
@@ -128,6 +113,10 @@ You should see your provider with type `maas-openai` and **one credential key**.
 ```bash
 openshell provider get "$NEMOCLAW_INFERENCE_PROVIDER"
 ```
+
+## On your own deployment (optional)
+
+Not needed in this lab. Outside it, put your own values in `~/workshop/.env` (`NEMOCLAW_INFERENCE_BASE_URL`, `NEMOCLAW_MODEL`, `NEMOCLAW_API_KEY`) before Step 2.
 
 ## Change it later
 

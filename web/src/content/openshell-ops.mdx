@@ -32,7 +32,7 @@ List the sandboxes in your namespace (the gateway creates them right next to its
 oc get sandboxes -n "$OPENSHELL_NS"
 ```
 
-If you haven't created an agent yet it's **empty** — you build your first in Part IV (an agent like `shifty` only shows here once it exists, as `default--shifty`: the gateway prefixes the workspace name). The point is the *shape*: every agent the gateway makes shows up here as a `Sandbox` CR (`agents.x-k8s.io/v1beta1`) you can inspect with plain `oc` (`oc -n "$OPENSHELL_NS" describe sandbox default--<name>`). That's the whole API surface — a Kubernetes object.
+In this lab you already see the five fleet agents of Part VI (`default--logs`, `default--metrics`, …); your own agent appears here once you build it in Part IV, as `default--shifty` (the gateway prefixes the workspace name). The point is the *shape*: every agent the gateway makes shows up here as a `Sandbox` CR (`agents.x-k8s.io/v1beta1`) you can inspect with plain `oc` (`oc -n "$OPENSHELL_NS" describe sandbox default--<name>`). That's the whole API surface — a Kubernetes object.
 
 ## Policies — what a gateway sandbox may do
 

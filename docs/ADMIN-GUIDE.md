@@ -68,7 +68,7 @@ oc login https://api.<cluster-domain>:6443 -u <admin-user>
 
 ## 3. Build the workshop image (optional)
 
-The chart default, `quay.io/mouachan/nemoclaw-workshop:v0.3.3`, is built from this repository: nothing to build. Rebuild the image
+The chart default, `quay.io/mouachan/nemoclaw-workshop:v0.3.4`, is built from this repository: nothing to build. Rebuild the image
 only if you change the web app or the lessons, then point `WORKSHOP_IMAGE` at it.
 
 **Option A — in the cluster (no local container runtime, native amd64):**
@@ -340,6 +340,14 @@ Measured on a 9-attendee load test (one cluster, 3 × m5a.8xlarge lab nodes, 1 �
 | GPU (Nemotron 3 Nano FP8) | 9 simultaneous investigations in **61 s**, no queue (median prompt 3.9k tokens) | ≈ 2-4 min on 1 GPU (estimate) | 2 replicas halve it; or stagger "Investigate" |
 | `lab.sh up` | 9 attendees in ~3.5 min (5 in parallel) | ≈ 12 min | |
 | Fleet creation | 9 attendees in ~12 min (3 in parallel) | ≈ 40 min (pre-provision before the lab) | re-staging configs: ~20 s |
+
+**Storage that fills up over a multi-day lab** (found on a 25-attendee cluster after 9 days):
+
+| What | Symptom | Fix |
+|---|---|---|
+| RustFS object storage (Loki + Tempo chunks), 5Gi before | 100 % full: Loki and Tempo log `failed to flush … Disk full`, the Loki WAL fills and the ingester grows to ~10 GiB of RAM; logs and traces stop being stored | `deploy/observability/object-storage` now defaults to **50Gi** and 4Gi of memory. On a running cluster: `oc -n observability-hub patch pvc observability-object-storage-data -p '{"spec":{"resources":{"requests":{"storage":"50Gi"}}}}'`, then `helm upgrade --install object-storage deploy/observability/object-storage -n observability-hub` (the restart finishes the resize). Loki's WAL PVC can be expanded the same way (`wal-logging-loki-ingester-0`). |
+| Platform Prometheus without a volume (`prometheus-k8s`, 15 days in an emptyDir) | ~5 GB/day on the node's root disk; on clusters with schedulable control-plane nodes it lands on a master and drives it toward DiskPressure | Give it a volume and a retention in `cluster-monitoring-config`: `prometheusK8s: {retention: 3d, retentionSize: 30GB, volumeClaimTemplate: {spec: {storageClassName: gp3-csi, resources: {requests: {storage: 40Gi}}}}}` (keep `enableUserWorkload: true`). |
+| Image prepull on control-plane nodes | evict / re-pull loop (DiskPressure) on a master | Label the workers `node-role.kubernetes.io/lab=` before `lab.sh shared`: the prepull DaemonSet and attendee pods then stay off the masters. |
 
 To add lab nodes, scale a worker MachineSet and label its template:
 

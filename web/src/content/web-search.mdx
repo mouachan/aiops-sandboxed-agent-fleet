@@ -49,7 +49,7 @@ Ask the agent something it can only answer by looking it up — and name the too
 openshell sandbox exec -n shifty -- sh -c 'cd /sandbox && openclaw agent --agent main -m "Use your web_search tool to search for: OpenShift documentation. Reply with just the domain of the official documentation site." --session-id wsdemo'
 ```
 
-It comes back with the official docs domain (today **`docs.redhat.com`**) — fetched live from DuckDuckGo, through the policy, by your sealed agent. Check the egress in `openshell logs shifty`: the DuckDuckGo requests are there, allowed by the `websearch` rule. Try it in the **Control UI** too: ask *"what's new in OpenShift 4.20?"* and watch it search.
+It comes back with an official docs domain (**`docs.redhat.com`** or **`docs.openshift.com`**, depending on what the search returns) — fetched live from DuckDuckGo, through the policy, by your sealed agent. Check the egress in `openshell logs shifty`: the DuckDuckGo requests are there, allowed by the `websearch` rule. Try it in the **Control UI** too: ask *"what's new in OpenShift 4.20?"* and watch it search.
 
 <Callout type="note" title="Free, but still governed">
 DuckDuckGo needs no key, which is why it's the friendly default. But notice the agent didn't get "the internet" — it got <strong>three hosts</strong>. If you swapped in a provider that hit <code>api.bing.com</code>, the call would be <em>denied</em> until you added that host to the policy. The search tool is only ever as reachable as your egress rules allow.

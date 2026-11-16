@@ -45,15 +45,15 @@ openshell sandbox exec -n shifty -- sh -c \
 
 ## 3. Watch a beat happen
 
-With `every 1m` you only wait about a minute. Give it ~60–90s after the restart, then ask the gateway for the last beat. `null` means none has fired yet — wait and re-run. A beat shows `"reason": "interval"` and a `status`: `ok-empty` means the agent ran the checklist and had nothing to report; a beat with something to say carries the agent's reply:
+The first beat fires one interval (here about a minute) **after** the gateway restart, so this command asks the gateway for the last beat every 10 seconds until one shows up (up to 2 minutes). A beat shows `"reason": "interval"` and a `status`: `ok-empty` means the agent ran the checklist and had nothing to report; a beat with something to say carries the agent's reply:
 
 ```bash
-openshell sandbox exec -n shifty -- openclaw system heartbeat last --json
+for i in $(seq 1 12); do b=$(openshell sandbox exec -n shifty -- openclaw system heartbeat last --json 2>/dev/null); case "$b" in *'"reason"'*) break ;; esac; echo "no beat yet, waiting…"; sleep 10; done; echo "$b"
 ```
 
 Each beat is also an audited turn — you can see it in `openshell logs shifty` like any other agent action.
 
-Once you've watched a beat, set a saner cadence so the agent isn't taking a turn every minute (and optionally scope it to working hours). The gateway hot-reloads heartbeat settings, no restart needed:
+**Don't skip this one.** Once you've watched a beat, set a saner cadence: at `1m` your agent takes a full model turn every minute, all day, on the model the whole room shares. (Optionally scope it to working hours.) The gateway hot-reloads heartbeat settings, no restart needed:
 
 ```bash
 openshell sandbox exec -n shifty -- sh -c 'openclaw config set agents.defaults.heartbeat.every 30m; openclaw config set agents.defaults.heartbeat.activeHours "{\"start\":\"09:00\",\"end\":\"18:00\"}" --strict-json'
