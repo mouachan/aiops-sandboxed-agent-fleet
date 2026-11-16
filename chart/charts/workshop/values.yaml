@@ -6,7 +6,7 @@
 # toggle in the header (remembered in a cookie). Sets WORKSHOP_DEFAULT_LANG.
 defaultLang: en
 
-image: quay.io/mouachan/nemoclaw-workshop:v0.3.5
+image: quay.io/mouachan/nemoclaw-workshop:v0.3.6
 imagePullPolicy: IfNotPresent
 replicas: 1
 
