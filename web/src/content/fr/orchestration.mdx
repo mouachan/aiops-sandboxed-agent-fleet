@@ -1,16 +1,10 @@
-Vous venez de voir la fleet enquêter. Il n'y a rien de magique : c'est un petit orchestrateur intégré à
-ce site même ([`/api/orchestrate`](/learn/incident-lab)), environ 130 lignes. Cette page vous le montre
-**en entier** : le plan, le prompt exact que reçoit chaque agent, la façon dont un agent scellé est invoqué
-et la façon dont l'analyste conclut. Rien n'est caché.
+Vous venez de voir la fleet mener l'enquête. Aucune magie là-dedans : c'est un petit orchestrateur d'environ 130 lignes, intégré à ce site ([`/api/orchestrate`](/learn/incident-lab)). Cette page le présente **en entier**, sans rien cacher : le plan, le prompt exact envoyé à chaque agent, la façon dont on invoque un agent isolé et la manière dont l'agent analyst rend ses conclusions.
 
 <FleetOrchestration />
 
-## 1 · Un plan fixe, sans appel au modèle pour « planifier »
+## 1 · Un plan fixe, sans appel au modèle pour planifier
 
-Beaucoup d'« orchestrateurs d'agents » dépensent un appel au modèle rien que pour décider quoi faire. Pas nous. Le plan est
-**fixe** : une probe prescrite par spécialiste. L'intelligence est dans chaque agent, qui *exécute et
-interprète* sa probe, et dans la synthèse de l'analyste. Les deux passent **par l'accès gouverné de
-l'agent à son propre modèle**, jamais par le site web. Chaque probe est la commande exacte que l'agent exécute :
+Beaucoup d'« orchestrateurs d'agents » consomment un appel au modèle rien que pour décider de la marche à suivre. Ce n'est pas le cas ici : le plan est **fixe**, avec une probe imposée par spécialiste. Le travail intelligent revient à chaque agent, qui *exécute et interprète* sa probe, puis à l'analyst, qui en fait la synthèse. Dans les deux cas, le modèle est sollicité **via l'accès gouverné propre à l'agent**, jamais depuis le site web. Chaque probe correspond à la commande exacte que l'agent exécute :
 
 ```ts
 const TQ = "node /sandbox/.agents/skills/cluster-telemetry/tq.js";
@@ -31,13 +25,11 @@ function buildProbes() {
 }
 ```
 
-Chaque probe est **limitée à votre namespace** : le port *tenancy* de Thanos (`9092`) ne répond que pour le `namespace=` que vous passez et vérifie que l'appelant a le droit de le lire, Loki filtre sur `kubernetes_namespace_name`, les events viennent d'un event-exporter dédié à votre namespace de démo, et les traces portent un attribut de ressource `k8s.namespace.name`. Dans un lab partagé, votre fleet ne voit jamais l'incident d'un autre participant.
+Chaque probe est **limitée à votre namespace**. Le port *tenancy* de Thanos (`9092`) ne répond que pour le namespace indiqué dans `namespace=`, après avoir vérifié que l'appelant a le droit de le lire. Loki filtre sur `kubernetes_namespace_name`. Les events proviennent d'un event-exporter dédié à votre namespace de démo, et les traces portent l'attribut de ressource `k8s.namespace.name`. Dans un lab partagé, votre fleet ne voit donc jamais l'incident d'un autre participant.
 
-## 2 · Chaque agent reçoit une sous-tâche directive
+## 2 · Une sous-tâche cadrée pour chaque agent
 
-Une consigne libre du type « enquête là-dessus » fait divaguer un petit modèle : il lit des fichiers, cherche des outils
-et tourne en boucle jusqu'à saturer son contexte. Chaque spécialiste scellé reçoit donc une sous-tâche **directive** qui
-contient la commande exacte. La boucle de tool calls tient ainsi en ~2 appels (exécuter la probe → rendre compte) et se termine en ~30 s :
+Face à une consigne vague comme « enquête là-dessus », un petit modèle s'égare : il lit des fichiers, cherche des outils et tourne en boucle jusqu'à saturer son contexte. Chaque spécialiste isolé reçoit donc une sous-tâche **cadrée**, qui contient la commande exacte à lancer. La boucle de tool calls se limite ainsi à deux appels environ (lancer la probe, puis transmettre le résultat) et se termine en une trentaine de secondes :
 
 ```ts
 const subtask =
@@ -52,10 +44,9 @@ const subtask =
   Incident: ${task}`;
 ```
 
-## 3 · Comment un agent scellé est réellement invoqué
+## 3 · Comment un agent isolé est invoqué
 
-Chaque étape s'exécute **dans la sandbox de l'agent**, via l'agent embarqué d'OpenClaw. Le site web
-n'appelle jamais de modèle : c'est la sandbox qui le fait, via le provider d'inférence qui lui est attaché (clé placeholder, remplacée par le supervisor à l'egress) :
+Chaque étape s'exécute **dans la sandbox de l'agent**, par l'intermédiaire de l'agent embarqué d'OpenClaw. Le site web n'appelle jamais de modèle : c'est la sandbox qui s'en charge, via le provider d'inférence qui lui est attaché (la sandbox ne voit qu'un placeholder, que le supervisor remplace par la vraie clé à l'egress) :
 
 ```ts
 // findings are multi-line, and `sandbox exec` rejects newline args → base64 the message in,
@@ -65,17 +56,11 @@ await openshell(["sandbox", "exec", "-n", agent, "--", "sh", "-c",
   `openclaw agent --local --json --session-id <uuid> -m "$(printf %s ${b64} | base64 -d)"`]);
 ```
 
-La probe elle-même est le **skill cluster-telemetry** (`tq.js`) : il appelle `curl` (un binaire
-autorisé en egress, donc l'appel reste borné par la policy à backend unique de l'agent) et affiche
-un résumé *compact* pour que l'agent reste concentré. Le `web_fetch` d'OpenClaw est bloqué pour les hôtes
-internes : c'est grâce au skill qu'un agent scellé lit `*.svc.cluster.local` sans rien affaiblir.
+La probe elle-même est le **skill cluster-telemetry** (`tq.js`). Il lance `curl`, un binaire autorisé en egress : l'appel reste donc encadré par la policy de l'agent, limitée à un seul backend. Il affiche ensuite un résumé *compact* pour que l'agent ne se disperse pas. Le `web_fetch` d'OpenClaw étant bloqué pour les hôtes internes, c'est ce skill qui permet à un agent isolé de lire `*.svc.cluster.local` sans rien affaiblir.
 
-## 4 · L'analyste conclut
+## 4 · La conclusion de l'analyst
 
-Les enquêteurs travaillent **en parallèle** ; quand tous ont répondu, leurs constats vont à l'agent
-**analyst** (aucun accès à la télémétrie, aucun tool call), qui raisonne dessus en combinant le taux d'erreur,
-les logs d'erreur, le span en échec et *ce qui a changé* d'après les events (`payments` ramené à
-0), pour en tirer une cause racine et un correctif recommandé :
+Les agents enquêteurs travaillent **en parallèle**. Une fois qu'ils ont tous répondu, leurs constats sont transmis à l'agent **analyst**, qui n'a ni accès à la télémétrie ni tool calls. Il croise le taux d'erreur, les logs d'erreur, le span en échec et *ce qui a changé* d'après les events (`payments` passé à 0 réplica), pour en déduire une root cause (cause racine) et une remediation recommandée :
 
 ```ts
 const analystPrompt =
@@ -89,28 +74,12 @@ const analystPrompt =
   RECOMMENDED_ACTION: <the specific reversal, e.g. "scale the payments deployment back up">`;
 ```
 
-Toute l'exécution est streamée vers la page en JSON délimité par des retours à la ligne (`plan` → `step start/done` →
-`writer` → `answer`) : c'est pour cela que la timeline, la requête de chaque agent et ses constats
-s'affichent au fur et à mesure. Un event `heartbeat` toutes les 15 s garde la connexion ouverte pendant
-qu'un agent lent réfléchit encore (les load balancers cloud coupent les connexions inactives depuis 60 s).
+Toute l'exécution est envoyée en continu à la page, sous forme de JSON délimité par des sauts de ligne (`plan` → `step start/done` → `writer` → `answer`). C'est pour cela que la timeline, la requête de chaque agent et ses constats s'affichent au fil de l'eau. Un event `heartbeat` toutes les 15 s maintient la connexion ouverte pendant qu'un agent lent réfléchit encore (les load balancers des clouds coupent les connexions inactives au bout de 60 s).
 
-Les petits modèles sautent ou déforment parfois le tool call. Après chaque réponse d'agent, l'orchestrateur
-vérifie donc que le constat contient la vraie sortie de sa probe (`status=success …` ou `traces=N`) ; sinon,
-il exécute lui-même la même probe (**dans la sandbox de cet agent, à travers sa policy d'egress**) et
-l'utilise comme constat (*verified probe output*), en écartant le texte de l'agent : une réponse sans la
-vraie sortie peut être inventée, par exemple recopier l'exemple de ses instructions. L'analyste raisonne
-alors toujours sur des données réelles, et la timeline vous montre quels constats ont eu besoin de ce
-filet de sécurité.
+Il arrive qu'un petit modèle saute le tool call ou le formule mal. Après chaque réponse, l'orchestrateur vérifie donc que le constat contient bien la sortie réelle de la probe (`status=success …` ou `traces=N`). Sinon, il exécute lui-même la même probe, **dans la sandbox de cet agent et à travers sa policy d'egress**, et retient cette sortie comme constat (*verified probe output*) en écartant le texte de l'agent : une réponse sans sortie réelle peut très bien être inventée, par exemple en reprenant l'exemple donné dans ses instructions. L'analyst raisonne ainsi toujours sur des données réelles, et la timeline indique quels constats ont eu besoin de ce filet de sécurité.
 
-L'orchestrateur compte aussi ce que les probes ont trouvé : lignes de log d'erreur, traces en erreur, events récents
-et taux de 5xx. Si toutes les probes ont répondu et que tout est à zéro, il déclare lui-même l'app en bonne santé
-(`synthesizedBy: evidence-check`) au lieu d'interroger le modèle, qui sinon prendrait « checkout is failing »
-au pied de la lettre. Dans le cas contraire, l'analyste reçoit ces compteurs avec les constats.
+L'orchestrateur fait aussi le compte de ce que les probes ont remonté : lignes de log en erreur, traces en erreur, events récents et taux de 5xx. Si toutes les probes ont répondu et que tous ces compteurs sont à zéro, il déclare lui-même l'application en bonne santé (`synthesizedBy: evidence-check`) sans interroger le modèle, qui prendrait sinon « checkout is failing » pour argent comptant. Dans le cas contraire, l'analyst reçoit ces compteurs en plus des constats.
 
-<Callout type="rh" title="Pourquoi c'est construit ainsi">
-Deux contraintes bien réelles ont guidé ces choix : le <code>web_fetch</code> d'OpenClaw refuse les hôtes internes
-(les agents lisent donc leur backend via un skill basé sur <code>curl</code>), et un petit modèle ne tient pas une
-boucle ReAct libre sur une télémétrie volumineuse (chaque agent reçoit donc une seule probe prescrite). Le résultat est
-<strong>fiable et réel</strong> : chaque agent exécute une vraie requête sur son vrai backend, et
-la recommandation de l'analyste vient de l'état réel du cluster. Lisez le code, modifiez-le, faites-le vôtre.
+<Callout type="rh" title="Pourquoi cette conception">
+Deux contraintes bien concrètes ont dicté ces choix. D'abord, le <code>web_fetch</code> d'OpenClaw refuse les hôtes internes : pour lire leur backend, les agents passent par un skill qui s'appuie sur <code>curl</code>. Ensuite, un petit modèle ne tient pas une boucle ReAct libre sur un gros volume de télémétrie : chaque agent reçoit donc une seule probe imposée. Le résultat est <strong>fiable et bien réel</strong> : chaque agent lance une vraie requête sur son propre backend, et la recommandation de l'analyst repose sur l'état actuel du cluster. Ce code est à vous : lisez-le, modifiez-le, adaptez-le.
 </Callout>
