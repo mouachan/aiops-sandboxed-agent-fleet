@@ -2,6 +2,13 @@
 // live lab terminal. The Terminal registers a sender when its WebSocket opens;
 // command blocks call runInShell(). Commands issued before the shell is live are
 // queued and flushed on connect (and the shell is auto-launched).
+import { createContext } from "react";
+
+// True inside a hands-on lesson (LabSplit), the only pages with a lab shell. Command blocks
+// outside one show Copy only: a "Run in shell" there would queue a command that nothing runs
+// (and that the next hands-on page would flush unexpectedly).
+export const LabShellContext = createContext(false);
+
 type Sender = (text: string) => void;
 
 let sender: Sender | null = null;

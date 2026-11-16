@@ -22,6 +22,8 @@ OC=$(jq -n --arg model "$NEMOCLAW_MODEL" --arg pw "$PW" --arg base "$NEMOCLAW_IN
     gateway: { port:30789, auth:{password:$pw}, remote:{ url:"ws://127.0.0.1:30789", password:$pw },
                trustedProxies:["127.0.0.1/32"],
                controlUi:{ dangerouslyAllowHostHeaderOriginFallback:true } },
+    update:  { checkOnStart:false },
+    memory:  { search:{ enabled:false } },
     agents:  { defaults:{ model:{ primary:("custom/"+$model) } } },
     models:  { providers:{ custom:{ baseUrl:$base,
                apiKey:"${OPENAI_API_KEY}", api:"openai-completions",
@@ -42,6 +44,8 @@ That `echo "$OC" | jq .` prints the exact `openclaw.json` you're staging — it 
     "trustedProxies": [ "127.0.0.1/32" ],
     "controlUi": { "dangerouslyAllowHostHeaderOriginFallback": true }
   },
+  "update": { "checkOnStart": false },
+  "memory": { "search": { "enabled": false } },
   "agents": { "defaults": { "model": { "primary": "custom/<your-model>" } } },
   "models": {
     "providers": {
@@ -56,7 +60,7 @@ That `echo "$OC" | jq .` prints the exact `openclaw.json` you're staging — it 
 }
 ```
 
-`Config valid` means OpenClaw accepted it. (`trustedProxies` is for the next lesson: your browser reaches this UI through `openshell forward`, which connects from `127.0.0.1` and passes on the browser's forwarded headers. OpenClaw only accepts those headers from a proxy you list, and otherwise answers `proxy_attribution_required`.) Two more things to notice: `models.providers.custom.baseUrl` is your **real** endpoint, and `apiKey` is `${OPENAI_API_KEY}` — at startup OpenClaw replaces it with the sandbox's **placeholder**, never your key. When OpenClaw (`node`) calls your endpoint, the request leaves through the sandbox's egress proxy; the supervisor sees the placeholder in the `Authorization` header and swaps in the real key — because the provider's profile says that credential may go to *that* host, from *that* binary. Anywhere else, the placeholder stays a placeholder.
+`Config valid` means OpenClaw accepted it. (`update.checkOnStart` and `memory.search` turn off OpenClaw's update check and its OpenAI embeddings for memory search: both would call the internet, the deny-by-default policy would block them, and each block would show up as an access request on the **Approvals** page.) (`trustedProxies` is for the next lesson: your browser reaches this UI through `openshell forward`, which connects from `127.0.0.1` and passes on the browser's forwarded headers. OpenClaw only accepts those headers from a proxy you list, and otherwise answers `proxy_attribution_required`.) Two more things to notice: `models.providers.custom.baseUrl` is your **real** endpoint, and `apiKey` is `${OPENAI_API_KEY}` — at startup OpenClaw replaces it with the sandbox's **placeholder**, never your key. When OpenClaw (`node`) calls your endpoint, the request leaves through the sandbox's egress proxy; the supervisor sees the placeholder in the `Authorization` header and swaps in the real key — because the provider's profile says that credential may go to *that* host, from *that* binary. Anywhere else, the placeholder stays a placeholder.
 
 You can see the rule the provider added to the sandbox's **effective** policy (your file + provider-composed entries):
 
@@ -76,7 +80,7 @@ We start it under `setsid` so it runs in its **own session** and keeps running a
 
 ```bash
 openshell sandbox exec -n shifty -- sh -c \
-  'cd /sandbox && pkill -f "^openclaw-gateway"; sleep 2; pkill -9 -f "^openclaw-gateway"; setsid nohup openclaw gateway run --port 30789 --bind lan --auth password --password '"${PW:-${OPENCLAW_GATEWAY_PASSWORD:-openclaw}}"' --allow-unconfigured >/sandbox/gateway.log 2>&1 < /dev/null & echo $! > gateway.pid; for i in $(seq 1 15); do grep -qE "\[gateway\] ready|listening on ws" /sandbox/gateway.log && break; sleep 2; done; grep -E "\[gateway\] ready|listening on ws" /sandbox/gateway.log'
+  'cd /sandbox && pkill -f "^openclaw-gateway"; sleep 2; pkill -9 -f "^openclaw-gateway"; setsid nohup openclaw gateway run --port 30789 --bind lan --auth password --password '"${PW:-${OPENCLAW_GATEWAY_PASSWORD:-openclaw}}"' --allow-unconfigured >/sandbox/gateway.log 2>&1 < /dev/null & echo $! > gateway.pid; for i in $(seq 1 15); do sed "s/\x1b\[[0-9;]*m//g" /sandbox/gateway.log | grep -qE "\[gateway\] ready" && break; sleep 2; done; sed "s/\x1b\[[0-9;]*m//g" /sandbox/gateway.log | grep -E "\[gateway\] ready"'
 ```
 
 <Callout type="note" title="Why stop it by name, not `gateway restart` or a PID file?">

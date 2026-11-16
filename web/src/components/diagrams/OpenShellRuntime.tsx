@@ -43,7 +43,7 @@ const COMPONENTS: Comp[] = [
     k8s: <><code>openshell provider profile import</code> + <code>openshell provider create</code>, then <code>sandbox create --provider</code> (or <code>sandbox provider attach</code>). The profile composes the endpoint into the sandbox&apos;s effective policy; the key never lands in the pod spec.</> },
   { id: "model", label: "Model", sub: "local or cloud frontier", color: SLATE, lane: "guard",
     what: <>Where inference actually runs: a local frontier model (e.g. Nemotron) for privacy, or a cloud frontier model. The agent calls its native API; the credential is brokered by OpenShell.</>,
-    k8s: <>For this workshop, inference is an <strong>OpenAI-compatible endpoint</strong> — in this lab, Nemotron on the cluster&apos;s own GPU via OpenShift AI Models-as-a-Service (a remote API works too). Shifty calls it directly with the placeholder key from its attached provider; the supervisor injects the real key.</> },
+    k8s: <>For this workshop, inference is an <strong>OpenAI-compatible endpoint</strong> — in this lab, the <code>nemotron</code> model served by OpenShift AI Models-as-a-Service (a remote API works too). Shifty calls it directly with the placeholder key from its attached provider; the supervisor injects the real key.</> },
 ];
 
 export function OpenShellRuntime() {
@@ -74,7 +74,7 @@ export function OpenShellRuntime() {
               className="px-2.5 py-1 font-medium transition"
               style={{ background: view === v ? "var(--color-nv)" : "transparent",
                        color: view === v ? "#06080b" : "var(--color-fg-dim)" }}>
-              {v === "what" ? "What it is" : "On Kubernetes"}
+              {v === "what" ? "What it is" : "On OpenShift"}
             </button>
           ))}
         </div>
@@ -109,7 +109,7 @@ export function OpenShellRuntime() {
           <span className="text-xs font-semibold" style={{ color: active.color }}>{active.label}</span>
           <span className="rounded px-1.5 py-0.5 text-[10px] font-medium"
                 style={{ background: view === "k8s" ? "#6f8fd033" : `${NV}22`, color: view === "k8s" ? BLUE : NV }}>
-            {view === "k8s" ? "on Kubernetes" : "what it is"}
+            {view === "k8s" ? "on OpenShift" : "what it is"}
           </span>
         </div>
         <div>{view === "k8s" ? active.k8s : active.what}</div>

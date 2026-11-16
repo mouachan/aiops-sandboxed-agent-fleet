@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type ReactNode, type CSSProperties } from 
 import { Terminal } from "./Terminal";
 import { PanelRightClose, PanelRightOpen, RotateCcw, TerminalSquare } from "lucide-react";
 import { useStoredString } from "@/lib/clientStore";
+import { LabShellContext } from "@/lib/labBus";
 
 const DEFAULT_PCT = 44;
 const clampPct = (n: number) => Math.min(68, Math.max(26, n));
@@ -11,6 +12,10 @@ const clampPct = (n: number) => Math.min(68, Math.max(26, n));
 // The shell column is draggable (resize width) and sticky (stays in view on scroll).
 // On small screens it stacks below the content.
 export function LabSplit({ children }: { children: ReactNode; slug?: string }) {
+  return <LabShellContext.Provider value={true}><LabSplitInner>{children}</LabSplitInner></LabShellContext.Provider>;
+}
+
+function LabSplitInner({ children }: { children: ReactNode }) {
   // % width of the shell column (desktop), remembered across pages
   const [pctRaw, setPctRaw] = useStoredString("oclaw:shell-pct", String(DEFAULT_PCT));
   const savedPct = Number(pctRaw);

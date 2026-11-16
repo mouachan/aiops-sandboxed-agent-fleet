@@ -1,11 +1,11 @@
 "use client";
-import { useState, useMemo, type ReactNode, isValidElement } from "react";
+import { useState, useMemo, useContext, type ReactNode, isValidElement } from "react";
 import hljs from "highlight.js/lib/core";
 import bash from "highlight.js/lib/languages/bash";
 import yaml from "highlight.js/lib/languages/yaml";
 import json from "highlight.js/lib/languages/json";
 import "highlight.js/styles/github-dark.css";
-import { runInShell } from "@/lib/labBus";
+import { runInShell, LabShellContext } from "@/lib/labBus";
 import { useIsClient } from "@/lib/clientStore";
 
 hljs.registerLanguage("bash", bash);
@@ -54,11 +54,12 @@ export function CodeBlock({ children }: { children?: ReactNode }) {
   const code = extractText(children).replace(/\n$/, "");
   const lang = getLang(children);
   const [copied, setCopied] = useState(false);
+  const hasShell = useContext(LabShellContext);
 
   const isRef = REF_LANGS.includes(lang);
   const isShell = lang === "" || SHELL_LANGS.includes(lang);
   const hasCommand = code.split("\n").some((l) => l.trim() !== "" && !/^\s*#/.test(l));
-  const runnable = isShell && hasCommand && !isRef; // reference fences are never runnable
+  const runnable = hasShell && isShell && hasCommand && !isRef; // reference fences are never runnable; no shell on the page → Copy only
   const label = isRef ? "reference" : (lang || "shell");
 
   const grammar = hljsLang(lang);

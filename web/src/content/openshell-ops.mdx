@@ -8,7 +8,7 @@ OpenShell runs as a StatefulSet. Look at it:
 oc -n "$OPENSHELL_NS" get statefulset,pods,svc
 ```
 
-Its **Kubernetes compute driver** continuously watches for sandboxes. A healthy gateway logs it every minute:
+Its **Kubernetes compute driver** continuously watches for sandboxes. A healthy gateway keeps logging it, every few seconds:
 
 ```bash
 oc -n "$OPENSHELL_NS" logs openshell-0 | grep -i "Listing sandboxes" | tail -3

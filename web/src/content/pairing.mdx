@@ -4,39 +4,29 @@ When you first open the OpenClaw Control UI from your browser, it asks for **one
 OpenClaw gives every browser a device identity (a keypair). A remote browser must be approved once by someone with operator access — that's you, running the CLI <strong>inside your agent's sandbox</strong> via the OpenShell gateway.
 </Callout>
 
-## 1. See pending requests
+## 1. Connect
 
-When your browser shows “Device pairing required”, list the requests. **`sbox-openclaw`** is a lab-shell helper (there's no `openclaw` binary on this host) — it runs the OpenClaw CLI **inside your sandbox** via the gateway, i.e. it's shorthand for `openshell sandbox exec -n shifty -- openclaw …` (and adds the gateway URL + password for you):
+Open the OpenClaw UI (previous lesson) and log in with your password. The page then shows **“Device pairing required”**: your browser has just sent a pairing request. Leave that tab open.
 
-```bash
-sbox-openclaw devices list
-```
-
-You'll see a **Pending** row with a `Request` id (a UUID) for your browser, plus any already-`Paired` devices. If you already approved this browser, there may be no pending row — that's fine, continue.
-
-## 2. Approve your browser
-
-Copy the pending request id and approve it:
+## 2. Approve it
 
 ```bash
-sbox-openclaw devices approve <REQUEST_ID>
+approve-browser
 ```
 
-<Callout type="tip" title="Approve the most recent">
-In a hurry? <code>sbox-openclaw devices approve --latest</code> shows the newest pending request with its id — then approve that id explicitly with the command above.
-</Callout>
+It approves the newest pending request, which is your browser's, and prints `Approved.` If it says no request is waiting, go back to step 1.
+
+## 3. Reload
+
+Reload the OpenClaw UI tab: you're in.
+
+## Optional: what `approve-browser` does
+
+For information only, nothing to run: it lists the pairing requests (`sbox-openclaw devices list`) and approves your browser's (`sbox-openclaw devices approve <REQUEST_ID>`), with the OpenClaw CLI running inside your sandbox through the OpenShell gateway.
 
 <Callout type="note" title="“Scope upgrade pending approval”? Enable approvals first">
 On a brand-new gateway the operator pairs with only the <code>operator.pairing</code> scope — it can <em>request</em> pairing but can't yet <em>approve</em> anyone, so the command above can fail with <strong>“scope upgrade pending approval.”</strong> Fix it once: open the <a href="/approvals">Approvals</a> page (header toolbar) and click <strong>Enable approvals</strong> — it grants the operator the admin scope (and restarts the agent's gateway) so approvals work from here on. The scripted provisioner does this for you at agent creation; you only need the button if you built the agent by hand or hit the deadlock.
 </Callout>
-
-## 3. Reconnect
-
-Back in the browser, reload — you're in. List devices again and your browser shows under **Paired**:
-
-```bash
-sbox-openclaw devices list
-```
 
 ## Managing devices
 

@@ -32,7 +32,7 @@ You have your own, isolated copy of the platform on a shared cluster:
 |---|---|
 | `userNN-openshell` (`$OPENSHELL_NS`) | your OpenShell gateway, your sandboxes (agents), your skill registry, the workshop |
 | `userNN-demo` (`$DEMO_NS`) | the demo shop app you will break and fix in the Incident Lab |
-| Model | NVIDIA **Nemotron 3 Nano** served on the cluster's GPU, OpenAI-compatible. Your API key is already registered in your gateway: your agents only ever see a placeholder, and the gateway swaps in the real key on the way out. |
+| Model | `nemotron`, served by OpenShift AI Models-as-a-Service, OpenAI-compatible. Your API key is already registered in your gateway: your agents only ever see a placeholder, and the gateway swaps in the real key on the way out. |
 
 The lessons use `$OPENSHELL_NS` and `$DEMO_NS` everywhere, so every command targets **your** namespaces.
 
@@ -83,7 +83,7 @@ Your namespaces have a resource quota (about 10 sandboxes). Delete sandboxes you
 | `openshell sandbox list` shows a sandbox `Stopped` (e.g. after a cluster restart) | `openshell sandbox start <name>` — it comes back with its files. |
 | A sandbox never becomes Ready | Delete it and create it again with the lesson's command. It must include `--policy`. |
 | The agent fails with `HTTP 500 "credential_unavailable"` | The facilitator rotated the model key. Re-run step 2 (**Start or restart the gateway**) of the **Configure** lesson. |
-| The agent answers slowly | Everyone shares the GPU. During the Incident Lab, wait for the timeline to finish rather than clicking again. |
+| The agent answers slowly | Everyone shares the same model endpoint. During the Incident Lab, wait for the timeline to finish rather than clicking again. |
 | `Forbidden` | Expected for the actions in §4. |
 | The OpenClaw UI asks to pair | Follow the **Pair Your Browser** lesson. |
 | Something is really broken | Ask your facilitator: they can rebuild your environment in a few minutes, and your URL and password stay the same. |

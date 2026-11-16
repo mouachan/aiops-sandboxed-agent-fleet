@@ -244,7 +244,7 @@ openshell sandbox exec -n shifty -- sh -c 'cd /sandbox/myskill && npm pkg set na
 openshell sandbox exec -n shifty -- openclaw plugins install @workshop/myskill --accept-capabilities --force
 ```
 
-You'll see the scoped fetch (`GET …:4873/@workshop%2Fmyskill`, allowed under `policy:in-cluster-registry`) and then **`Installed plugin: myskill`**.
+You'll see the scoped fetch (`GET …:4873/@workshop%2Fmyskill`, allowed under `policy:in-cluster-registry`) and then **`Installed plugin: my-skill`** (the id from the plugin's manifest). Like every plugin install in this lesson, it takes **one to two minutes**: npm fetches and installs about 120 dependencies inside your sandbox. Wait for the `Installed plugin` line.
 
 ### Flow B — mirror a *vetted* ClawHub skill
 
@@ -317,7 +317,7 @@ A plugin only goes live when the gateway **restarts** (step 4 above). It's the s
 
 ```bash
 openshell sandbox exec -n shifty -- sh -c \
-  'cd /sandbox && pkill -f "^openclaw-gateway"; sleep 2; pkill -9 -f "^openclaw-gateway"; setsid nohup openclaw gateway run --port 30789 --bind lan --auth password --password '"${OPENCLAW_GATEWAY_PASSWORD:-openclaw}"' --allow-unconfigured >/sandbox/gateway.log 2>&1 < /dev/null & echo $! > gateway.pid; for i in $(seq 1 15); do grep -qE "\[gateway\] ready|listening on ws" /sandbox/gateway.log && break; sleep 2; done; openclaw plugins list --enabled | grep -i hello'
+  'cd /sandbox && pkill -f "^openclaw-gateway"; sleep 2; pkill -9 -f "^openclaw-gateway"; setsid nohup openclaw gateway run --port 30789 --bind lan --auth password --password '"${OPENCLAW_GATEWAY_PASSWORD:-openclaw}"' --allow-unconfigured >/sandbox/gateway.log 2>&1 < /dev/null & echo $! > gateway.pid; for i in $(seq 1 15); do sed "s/\x1b\[[0-9;]*m//g" /sandbox/gateway.log | grep -qE "\[gateway\] ready" && break; sleep 2; done; openclaw plugins list --enabled | grep -i hello'
 ```
 
 You'll see **Hello World** in the enabled list. (Restarting the gateway briefly drops the UI forward — the workshop pod's `openclaw-forward` sidecar reconnects on its own within a few seconds; just reload the UI.)

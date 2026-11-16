@@ -10,14 +10,7 @@ Your agent's Control UI is running on port `30789` — but **sealed inside the s
 
 ## Expose the UI
 
-The bridge is `openshell forward`: it listens on a local port and tunnels each connection *through* the gateway and the sandbox's supervisor to the same port inside the sandbox. On a laptop you'd run it yourself (reference — don't run it here):
-
-```bash-ref
-openshell forward start 0.0.0.0:30789 shifty --background
-openshell forward list
-```
-
-In this workshop it's already running for you: the workshop pod has an `openclaw-forward` **sidecar** that runs the same `openshell forward start 0.0.0.0:30789 shifty` (in the foreground, without `--background`) in a loop (and reconnects whenever OpenClaw restarts), and an OpenShift Route (`openclaw-ui`) points at it. Your lab shell shares the pod's network, so you can check the bridge directly:
+**Nothing to start here: the bridge already runs for you.** The bridge is `openshell forward`: it listens on a port and tunnels each connection *through* the gateway and the sandbox's supervisor to the same port inside the sandbox. The workshop pod has an `openclaw-forward` **sidecar** that runs `openshell forward start 0.0.0.0:30789 shifty` in a loop (it reconnects whenever OpenClaw restarts), and an OpenShift Route (`openclaw-ui`) points at it. Your lab shell shares the pod's network, so check the bridge directly:
 
 ```bash
 curl -s -o /dev/null -w "OpenClaw UI: HTTP %{http_code}\n" http://127.0.0.1:30789/
@@ -26,12 +19,31 @@ curl -s -o /dev/null -w "OpenClaw UI: HTTP %{http_code}\n" http://127.0.0.1:3078
 `HTTP 200` means the bridge is live: Route → `openshell forward` → gateway → supervisor → the agent's UI.
 
 <Callout type="note" title="Why a forward, not a Service?">
-A <em>sandbox</em> is network-sealed — its pod is fenced by a NetworkPolicy, so nothing can connect to its listening port directly, not even another pod. Only <code>openshell forward</code> (which tunnels <em>through</em> the gateway + supervisor) can reach it. One forward per port; stop one you started yourself with <code>openshell forward stop 30789 shifty</code>.
+A <em>sandbox</em> is network-sealed — its pod is fenced by a NetworkPolicy, so nothing can connect to its listening port directly, not even another pod. Only <code>openshell forward</code> (which tunnels <em>through</em> the gateway + supervisor) can reach it. One forward per port.
 </Callout>
 
 ## Open it in your browser
 
-<ServiceLink service="openclaw">Open the OpenClaw UI</ServiceLink> — log in with the gateway password from the banner above (`openclaw` by default on a single-user cluster). That link is the `openclaw-ui` Route in your namespace.
+<ServiceLink service="openclaw">Open the OpenClaw UI</ServiceLink> (the `openclaw-ui` Route in your namespace) and log in with your **gateway password**. Print it in your terminal:
+
+```bash
+grep OPENCLAW_GATEWAY_PASSWORD ~/workshop/.env
+```
+
+In this lab it is a random password of your own (it is also on the page you got when you signed up); on a single-user cluster it is `openclaw`.
+
+On the OpenClaw login form, leave **Gateway Token** empty and paste the password in the **Password** field, then click **Connect**. (The gateway uses password auth: a password typed in the token field is rejected with *Auth required*.)
+
+## Optional: the same bridge from your own laptop
+
+Not needed for this lab, and nothing to install for it. Later, with the `openshell` CLI installed on your laptop and connected to your own OpenShell gateway, you would start the bridge yourself and open the agent's UI at `http://localhost:30789`:
+
+```bash-ref
+openshell forward start 0.0.0.0:30789 shifty --background
+openshell forward list
+```
+
+Stop it with `openshell forward stop 30789 shifty`.
 
 ## Also: the OpenShift console (optional)
 

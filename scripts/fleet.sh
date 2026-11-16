@@ -226,7 +226,7 @@ up() {
         '{agents:{defaults:{model:{primary:("custom/"+$m)},
                             skills:["cluster-telemetry"], bootstrapTotalMaxChars:6000}},
           tools:{profile:"minimal", alsoAllow:["exec"], exec:{host:"gateway"}},
-          plugins:{entries:{"memory-core":{enabled:false}}},
+          plugins:{entries:{"memory-core":{enabled:false}}}, update:{checkOnStart:false},
           models:{providers:{custom:{baseUrl:$u,apiKey:"${OPENAI_API_KEY}",api:$api,
                                      models:[{id:$m,name:$m,contextWindow:$cw,maxTokens:$mt}]}}}}' | b64)"
       ox "$name" "mkdir -p /sandbox/.openclaw && echo $cfg | base64 -d > /sandbox/.openclaw/openclaw.json"

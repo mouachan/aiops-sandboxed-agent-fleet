@@ -1,4 +1,4 @@
-Your agent needs a **brain** — somewhere to send its thinking. It talks to an **OpenAI-compatible inference endpoint** — in this lab, NVIDIA Nemotron 3 Nano served on the cluster's own GPU through OpenShift AI Models-as-a-Service (any remote OpenAI-compatible API works the same way). You provide three things:
+Your agent needs a **brain** — somewhere to send its thinking. It talks to an **OpenAI-compatible inference endpoint** — in this lab, the `nemotron` model served by OpenShift AI Models-as-a-Service (any remote OpenAI-compatible API works the same way). You provide three things:
 
 - **Base URL** — the endpoint, ending in `/v1` (e.g. `https://api.openai.com/v1`)
 - **Model** — the model id to use (e.g. `gpt-4o`)
@@ -14,7 +14,7 @@ In a facilitated multi-user lab your <code>.env</code> already holds your endpoi
 
 ## Step 1 — Put your values in `.env` (your own deployment only)
 
-Open the workshop's `.env` in an editor:
+**In this lab your values are already filled in: skip to Step 2.** On your own deployment, open the workshop's `.env` in an editor:
 
 ```bash
 cd ~/workshop
@@ -51,7 +51,7 @@ curl -sS "$NEMOCLAW_INFERENCE_BASE_URL/chat/completions" -H "Authorization: Bear
   -H "Content-Type: application/json" -d "$BODY" | jq -r '.choices[0].message.content // .error'
 ```
 
-`PONG` means your **endpoint, model and key are good**. (Some endpoints also list their models at `/models`, but a Models-as-a-Service gateway in front of an external model can return an empty list: a real completion is the reliable test.)
+`PONG` means your **endpoint, model and key are good**. (Some endpoints also list their models at `/models`; a Models-as-a-Service endpoint may not, so a real completion is the reliable test.)
 
 Your agent also calls **tools** (run a command, read a file, search the web), so the model server must accept tool calls:
 

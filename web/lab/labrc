@@ -49,6 +49,22 @@ sbox-openclaw() {
   openshell sandbox exec -n "${OPENCLAW_AGENT:-shifty}" -- openclaw "$@" "${extra[@]}"
 }
 
+# approve-browser — approve the newest pending device-pairing request of your agent's Control UI
+# (the browser you just logged in with), so nobody has to copy a request id out of a wide table.
+approve-browser() {
+  local json id
+  json="$(sbox-openclaw devices list --json 2>/dev/null | sed -n '/^{/,$p')"
+  id="$(jq -r '[.pending[]?] | sort_by(.ts) | last | .requestId // empty' <<<"$json" 2>/dev/null)"
+  if [[ -z "$id" ]]; then
+    echo "No pairing request is waiting. Log in to the OpenClaw UI first (password in the Password field),"
+    echo "wait for \"Device pairing required\", then run approve-browser again."
+    return 1
+  fi
+  echo "Approving pairing request ${id} ..."
+  sbox-openclaw devices approve "$id" >/dev/null 2>&1 || { echo "Approval failed: run sbox-openclaw devices approve ${id} to see why."; return 1; }
+  echo "Approved. Reload the OpenClaw UI tab."
+}
+
 # expose-agent <sandbox> [port=8000] — publish a sandbox's HTTP endpoint so you can reach it.
 # The primary agent's Control UI is already available at the openclaw-ui Route. This helper
 # is useful for additional fleet agents that are NOT automatically forwarded.

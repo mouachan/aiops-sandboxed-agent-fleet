@@ -44,10 +44,10 @@ const NODES: Record<string, N> = {
     ours: <>Created by <code>openshell sandbox create</code> in the gateway&apos;s own namespace as <code>default--&lt;name&gt;</code> (plus an <code>os-supervisor-…</code> pod), on the community OpenClaw sandbox image.</> },
   guard: { id: "guard", label: "Network Guardrail + Credential Brokering", sub: "egress · placeholders", color: AMBER,
     what: <>Every outbound connection is checked (deny-by-default, per-binary). Attached <strong>providers</strong> give the sandbox only a placeholder credential; the egress proxy swaps in the real secret, only toward the endpoint the provider profile allows.</>,
-    ours: <>Your agent&apos;s OpenClaw config points at the real OpenAI-compatible endpoint (in this lab, Nemotron on the cluster&apos;s GPU via OpenShift AI MaaS) with the placeholder key; the provider profile allows that one host for <code>node</code>/<code>curl</code>.</> },
+    ours: <>Your agent&apos;s OpenClaw config points at the real OpenAI-compatible endpoint (in this lab, the <code>nemotron</code> model served by OpenShift AI Models-as-a-Service) with the placeholder key; the provider profile allows that one host for <code>node</code>/<code>curl</code>.</> },
   addons: { id: "addons", label: "Optional add-ons", sub: "Envoy · cert-manager · LB · GPU", color: SLATE,
     what: <>Envoy Gateway (Gateway API + GRPCRoute), cert-manager (auto cert rotation), a LoadBalancer Service (external addr + SSH relay), and a GPU device plugin (for GPU sandboxes).</>,
-    ours: <>Routes expose the workshop and the agent UI; the sandboxes are CPU-only (the lab&apos;s GPU node serves the model through OpenShift AI). The OpenShift observability operators add Prometheus/Loki/Tempo, plus a standalone Grafana.</> },
+    ours: <>Routes expose the workshop and the agent UI; the sandboxes are CPU-only (the model is served by OpenShift AI Models-as-a-Service). The OpenShift observability operators add Prometheus/Loki/Tempo, plus a standalone Grafana.</> },
 };
 
 function Chip({ id, sel, onSelect, w }: { id: string; sel: string; onSelect: (id: string) => void; w?: string }) {
@@ -75,7 +75,7 @@ export function OpenShellOnK8s() {
 
   return (
     <figure className="my-6 rounded-xl border border-[var(--color-line)] bg-[var(--color-panel)] p-4">
-      <figcaption className="mb-3 text-sm text-[var(--color-fg-mut)]">OpenShell on Kubernetes — click any object (detail shows how <em>this</em> workshop maps to it)</figcaption>
+      <figcaption className="mb-3 text-sm text-[var(--color-fg-mut)]">OpenShell on OpenShift — click any object (detail shows how <em>this</em> workshop maps to it)</figcaption>
       <div className="grid gap-2 lg:grid-cols-[150px_1fr_140px]">
         {/* external clients */}
         <div className="flex flex-col gap-2">
@@ -83,7 +83,7 @@ export function OpenShellOnK8s() {
         </div>
         {/* the cluster */}
         <div className="rounded-xl border-2 p-2" style={{ borderColor: SLATE }}>
-          <div className="mb-1 text-[10px] font-bold uppercase tracking-wide" style={{ color: SLATE }}>Kubernetes cluster</div>
+          <div className="mb-1 text-[10px] font-bold uppercase tracking-wide" style={{ color: SLATE }}>OpenShift cluster</div>
           <div className="rounded-lg border-2 p-2" style={{ borderColor: NV }}>
             <div className="mb-1 text-[10px] font-bold" style={{ color: NV }}>namespace: &lt;user&gt;-openshell (single: openshell)</div>
             <div className="mb-2"><Chip sel={sel} onSelect={setSel} id="grpcroute" /></div>
