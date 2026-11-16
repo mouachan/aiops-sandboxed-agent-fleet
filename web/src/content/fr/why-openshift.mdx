@@ -1,18 +1,18 @@
-OpenShift est le **Kubernetes d'entreprise de Red Hat** : Kubernetes plus tout ce qu'il faut pour l'exploiter en production, à savoir une console intégrée, une sécurité par défaut, des outils de build et de déploiement, et la CLI `oc`. Pour un agent IA, cela veut dire de vrais garde-fous.
+OpenShift est la **distribution Kubernetes d'entreprise de Red Hat** : Kubernetes, complété de tout ce qu'il faut pour l'exploiter en production (une console intégrée, une configuration sécurisée par défaut, des outils de build et de déploiement, la CLI `oc`). Pour un agent IA, cela se traduit par de vrais guardrails (garde-fous).
 
-## Pourquoi faire tourner un agent sur OpenShift ?
-- **Isolation par défaut** — les namespaces, le RBAC et les Security Context Constraints bornent ce qu'une charge de travail peut faire.
-- **Network policy** — vous pouvez cloisonner l'egress de l'agent.
-- **Limites de ressources** — des plafonds CPU/mémoire empêchent un agent qui s'emballe d'accaparer la machine.
-- **Routes** — chaque service obtient un vrai nom d'hôte avec TLS, sans bricolage de ports.
-- **Une console** — une vraie UI pour voir les pods, les logs et les events pendant que vous construisez.
+## Pourquoi exécuter un agent sur OpenShift ?
+- **Isolation par défaut** — les namespaces, le RBAC et les Security Context Constraints limitent ce qu'une charge de travail peut faire.
+- **Network policies** — vous pouvez restreindre l'egress de l'agent.
+- **Limites de ressources** — des plafonds de CPU et de mémoire empêchent un agent incontrôlable d'accaparer toute la machine.
+- **Routes** — chaque service reçoit un vrai nom d'hôte, avec TLS, sans bricolage de ports.
+- **Une console** — une véritable interface pour suivre les pods, les logs et les events pendant que vous construisez.
 
-## Défense en profondeur
+## Defense in depth
 
-Faire tourner l'agent sur OpenShift (+ OpenShell) empile plusieurs protections indépendantes. Cliquez sur chaque couche :
+Exécuter l'agent sur OpenShift, avec OpenShell, permet de superposer plusieurs protections indépendantes (c'est le principe de la défense en profondeur). Cliquez sur chaque couche :
 
 <SecurityLayers />
 
-<Callout type="rh" title="Tout ceci se transpose en production">
-Les API OpenShift, la CLI <code>oc</code> et le Helm chart que vous avez déployé sont ceux que vous utiliseriez sur un vrai cluster de production. Ce que vous apprenez ici s'applique directement.
+<Callout type="rh" title="Tout ce que vous voyez ici vaut en production">
+Les API OpenShift, la CLI <code>oc</code> et le Helm chart déployé ici sont exactement ceux que vous utiliseriez sur un cluster de production. Ce que vous apprenez s'applique tel quel.
 </Callout>

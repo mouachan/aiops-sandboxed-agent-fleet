@@ -1,32 +1,32 @@
-La recherche web n'était qu'*un* outil. Les **skills** (plugins OpenClaw) permettent de donner à votre agent *beaucoup* d'outils : une météo, un assistant de code, un workflow métier, installés depuis un registry ou écrits par vous. Ce qui est intéressant sur cette plateforme, ce n'est pas seulement d'*ajouter* des skills ; c'est que chaque skill reste **gouverné** : d'où il vient, s'il s'exécute et ce qu'il peut atteindre, c'est vous qui le contrôlez.
+La recherche web n'était qu'*un* outil parmi d'autres. Avec les **skills** (les plugins OpenClaw), vous pouvez en donner *beaucoup* à votre agent : consultation de la météo, aide au code, workflow métier… Ils s'installent depuis un registry, ou vous les écrivez vous-même. Mais sur cette plateforme, l'intérêt n'est pas seulement d'*ajouter* des skills : chacun d'eux reste **gouverné**. D'où il vient, s'il s'exécute, ce qu'il peut joindre : c'est vous qui en décidez.
 
-Cette leçon mène au pattern de production : les skills entrent par **un seul registry que vous faites tourner dans le cluster**, qu'ils soient **écrits** par vous ou **vérifiés puis mis en miroir** depuis ClawHub, et le *seul* egress de l'agent pour les installations est ce registry. ClawHub et npm public sont refusés au niveau du sceau.
+Cette leçon vous conduit pas à pas jusqu'au modèle utilisé en production : les skills entrent par **un registry unique, que vous exploitez dans le cluster**, qu'ils aient été **écrits** par vous ou **vérifiés puis mis en miroir** depuis ClawHub. Pour ses installations, l'agent n'a *pas d'autre* egress que ce registry : ClawHub et le registry npm public sont bloqués par l'isolation de la sandbox.
 
 <SkillSupplyChain />
 
-## 1. Découvrez des skills sur ClawHub
+## 1. Découvrir des skills sur ClawHub
 
-Votre agent est livré **sans ClawHub** : sa policy autorise votre registry privé, npm public (pour les dépendances des plugins) et DuckDuckGo, mais pas ClawHub (vous la verrouillerez davantage et confirmerez le refus à l'étape 7). Mais pour comprendre *pourquoi* c'est la bonne posture, mieux vaut d'abord découvrir l'alternative, **ClawHub**, le registry public de plugins d'OpenClaw, et voir comment vous encadreriez la récupération de skills directement depuis celui-ci. Ouvrez donc une **porte temporaire** pour les prochaines étapes :
+Votre agent est livré **sans accès à ClawHub** : sa policy autorise votre registry privé, le registry npm public (pour les dépendances des plugins) et DuckDuckGo, mais pas ClawHub (vous la durcirez encore à l'étape 7, où vous vérifierez aussi ce refus). Pour comprendre *pourquoi* c'est le bon choix, commencez par découvrir l'alternative, **ClawHub**, le registry public de plugins d'OpenClaw, et voyez comment encadrer l'installation de skills directement depuis ce registry. Ouvrez donc une **porte temporaire**, le temps des étapes suivantes :
 
 ```bash
 openshell policy update shifty --add-endpoint 'clawhub.ai:443:full' --add-endpoint 'hub.openclaw.ai:443:full' --binary /usr/bin/node --binary /usr/local/bin/node
 ```
 
-Cherchez maintenant sur ClawHub depuis l'intérieur de votre sandbox :
+Lancez ensuite une recherche sur ClawHub depuis votre sandbox :
 
 ```bash
 openshell sandbox exec -n shifty -- openclaw plugins search hello
 ```
 
-Vous obtenez un court catalogue, chaque ligne se terminant par sa commande d'installation, par ex. `openclaw plugins install clawhub:openclaw-hello-world`. Les installations de cette leçon ajoutent `--accept-capabilities` : OpenClaw (2026.8+) exige ce consentement explicite avant qu'un plugin puisse utiliser les capacités qu'il déclare, et refuse de le charger sinon. (Essayez aussi `… plugins search weather`.)
+Vous obtenez un court catalogue ; chaque ligne se termine par la commande d'installation correspondante, par exemple `openclaw plugins install clawhub:openclaw-hello-world`. Dans cette leçon, les installations ajoutent `--accept-capabilities` : depuis la version 2026.8, OpenClaw exige ce consentement explicite avant qu'un plugin puisse utiliser les capacités qu'il déclare, et refuse de le charger sans lui. (Essayez aussi `… plugins search weather`.)
 
-<Callout type="note" title="Cette recherche n'a marché que parce que vous avez ouvert la porte">
-ClawHub se trouve sur <code>clawhub.ai</code> + <code>hub.openclaw.ai</code>. Votre sandbox est deny-by-default et n'autorise <strong>ni l'un ni l'autre</strong> au départ : la recherche n'a fonctionné que parce que vous venez de les ajouter. C'est tout l'intérêt : ClawHub n'est joignable <em>que</em> lorsque votre policy le permet, et d'ici la fin de cette leçon, vous refermerez cette porte pour de bon, en ne gardant que votre propre registry comme source unique.
+<Callout type="note" title="Cette recherche n'a abouti que parce que vous avez ouvert la porte">
+ClawHub est hébergé sur <code>clawhub.ai</code> et <code>hub.openclaw.ai</code>. Votre sandbox fonctionne en deny-by-default et n'autorise <strong>aucun des deux</strong> au départ : la recherche n'a fonctionné que parce que vous venez de les ajouter. C'est précisément le but : ClawHub n'est joignable <em>que</em> si votre policy l'autorise. À la fin de cette leçon, vous condamnerez cette porte pour de bon, et votre propre registry deviendra la seule source.
 </Callout>
 
-## 2. Installez un skill, et filtrez ceux que la policy autorise
+## 2. Installer un skill et filtrer ceux que la policy autorise
 
-ClawHub est maintenant une *source* autorisée : l'étape 1 a ajouté deux règles à la policy de votre sandbox, `allow_clawhub_ai_443` (le registry, `clawhub.ai`) et `allow_hub_openclaw_ai_443` (son CDN de packages, `hub.openclaw.ai`), pour `node` uniquement. Les *dépendances* des plugins viennent de npm public, via la règle `npm-registry` que votre policy contient déjà :
+ClawHub est désormais une *source* autorisée : l'étape 1 a ajouté à la policy de votre sandbox deux règles, `allow_clawhub_ai_443` (le registry, `clawhub.ai`) et `allow_hub_openclaw_ai_443` (son CDN de packages, `hub.openclaw.ai`), réservées à `node`. Les *dépendances* des plugins proviennent du registry npm public, via la règle `npm-registry` déjà présente dans votre policy :
 
 ```yaml
 network_policies:
@@ -41,13 +41,13 @@ network_policies:
     binaries:  [ { path: /usr/bin/node }, { path: /usr/local/bin/node }, { path: /usr/bin/npm }, { path: /usr/local/bin/npm } ]
 ```
 
-Vous pouvez voir le résultat en direct à tout moment avec `openshell policy get shifty`.
+À tout moment, `openshell policy get shifty` affiche la policy en vigueur.
 
-<Callout type="note" title="Pourquoi registry.npmjs.org a besoin de allow_encoded_slash">
-Un plugin peut tirer des dépendances npm <strong>scopées</strong> (par ex. <code>openclaw-hello-world</code> → <code>@sinclair/typebox</code>), que npm récupère sous la forme <code>/@sinclair%2ftypebox</code>, avec le <code>/</code> encodé en URL en <code>%2F</code>. Le proxy d'egress du supervisor analyse strictement les chemins et <strong>rejette par défaut les slashs encodés</strong> (une protection contre le path traversal et le request smuggling) : l'hôte est donc autorisé, mais la requête est refusée par <code>engine:http-parser</code> et l'installation reste bloquée sur <em>"Installing plugin dependencies"</em>. Définir <code>protocol: rest</code> + <code>allow_encoded_slash: true</code> sur l'endpoint npm l'autorise. Votre règle <code>npm-registry</code> fournie contient déjà ce correctif ; quand un endpoint ne l'a pas, le refus apparaît dans <a href="/learn/live">Live OpenShell</a>, onglet <strong>Décisions de policy</strong>. (Ce n'est <strong>pas</strong> réglable via <code>openshell policy update --add-endpoint</code> ; cela se définit dans le YAML de la policy.)
+<Callout type="note" title="Pourquoi registry.npmjs.org a besoin d'allow_encoded_slash">
+Un plugin peut dépendre de packages npm <strong>scopés</strong> (par exemple <code>openclaw-hello-world</code> → <code>@sinclair/typebox</code>), que npm télécharge sous la forme <code>/@sinclair%2ftypebox</code>, le <code>/</code> étant encodé en <code>%2F</code> dans l'URL. Le proxy d'egress du supervisor analyse les chemins de façon stricte et <strong>rejette par défaut les slashs encodés</strong> (une protection contre le path traversal et le request smuggling). L'hôte est donc autorisé, mais la requête est refusée par <code>engine:http-parser</code>, et l'installation reste bloquée sur <em>« Installing plugin dependencies »</em>. Pour l'autoriser, il suffit d'ajouter <code>protocol: rest</code> et <code>allow_encoded_slash: true</code> à l'endpoint npm. La règle <code>npm-registry</code> livrée avec votre policy intègre déjà ce correctif ; si un endpoint ne l'a pas, le refus apparaît sur la page <a href="/learn/live">Live OpenShell</a>, dans l'onglet <strong>Décisions de policy</strong>. (Ce réglage ne peut <strong>pas</strong> se faire avec <code>openshell policy update --add-endpoint</code> : il se définit dans le YAML de la policy.)
 </Callout>
 
-Mais `access: full` permet à l'agent d'installer **n'importe quel** package ClawHub. Le proxy d'egress d'OpenShell peut faire mieux : il termine le TLS et évalue le **chemin HTTP** (`engine:l7`), ce qui vous permet de filtrer ClawHub **package par package**. Passez le registry en mode enforce et bloquez un package auquel vous ne faites pas confiance :
+Seulement, avec `access: full`, l'agent peut installer **n'importe quel** package ClawHub. Le proxy d'egress d'OpenShell permet d'aller plus loin : il termine la connexion TLS et examine le **chemin HTTP** (`engine:l7`), ce qui vous permet de filtrer ClawHub **package par package**. Passez le registry en mode enforce et bloquez un package auquel vous ne faites pas confiance :
 
 ```bash
 openshell policy update shifty --remove-endpoint 'clawhub.ai:443'
@@ -58,9 +58,9 @@ openshell policy update shifty \
   --rule-name allow_clawhub_ai_443 --binary /usr/bin/node --binary /usr/local/bin/node --wait
 ```
 
-Une règle de deny s'ajoute à une règle **existante** : vous la nommez donc (`--rule-name allow_clawhub_ai_443`, le nom généré pour `clawhub.ai:443`) et vous redonnez la liste **complète** des binaires de cette règle (`--binary …`, ou `--any-binary` pour une règle qui autorise tous les binaires). Cette rigueur est voulue : vous ne pouvez pas élargir ou restreindre par accident les binaires concernés par la règle. `--wait` rend la main une fois que le supervisor de la sandbox a chargé la nouvelle révision.
+Une deny rule se greffe sur une règle **existante** : vous devez donc nommer celle-ci (`--rule-name allow_clawhub_ai_443`, le nom généré pour `clawhub.ai:443`) et redonner la liste **complète** de ses binaires (`--binary …`, ou `--any-binary` pour une règle qui autorise tous les binaires). Cette exigence est voulue : impossible d'élargir ou de restreindre par mégarde le champ d'application de la règle. Avec `--wait`, la commande ne rend la main qu'une fois la nouvelle révision chargée par le supervisor de la sandbox.
 
-Essayez maintenant d'installer ce package : il est refusé à la couche 7, avant qu'aucun code n'arrive :
+Essayez maintenant d'installer ce package : la requête est refusée dès la couche 7, avant que le moindre code n'arrive dans la sandbox.
 
 ```bash
 # refused by the policy, on purpose (expect-fail: policy_denied)
@@ -75,7 +75,7 @@ ClawHub /api/v1/packages/weather-api-hub failed (403): {
 }
 ```
 
-L'audit enregistre la décision :
+L'audit log enregistre la décision :
 
 ```bash
 sleep 5; openshell logs shifty --source sandbox -n 500 | grep weather-api-hub   # give the log a few seconds to arrive
@@ -86,33 +86,33 @@ HTTP:GET  DENIED GET .../packages/weather-api-hub [policy:allow_clawhub_ai_443 e
           [reason: blocked by deny rule]
 ```
 
-Un package que vous n'avez **pas** bloqué s'installe toujours. Récupérez le skill hello-world vérifié :
+Un package que vous n'avez **pas** bloqué s'installe toujours normalement. Installez le skill hello-world, jugé fiable :
 
 ```bash
 openshell sandbox exec -n shifty -- openclaw plugins install clawhub:openclaw-hello-world --accept-capabilities
 ```
 
-Il est téléchargé depuis ClawHub puis enregistré. Vérifiez qu'il est bien là :
+Il est téléchargé depuis ClawHub, puis enregistré. Vérifiez sa présence :
 
 ```bash
 openshell sandbox exec -n shifty -- openclaw plugins list
 ```
 
-Vous verrez **Hello World** : `enabled`, version `0.1.0`, « Registers a `hello` tool and ships a matching skill. » L'agent installe donc depuis ClawHub, mais uniquement les packages que vous laissez passer.
+Vous devez voir **Hello World**, à l'état `enabled`, en version `0.1.0`, avec la description « Registers a `hello` tool and ships a matching skill. » L'agent peut donc installer des skills depuis ClawHub, mais uniquement ceux que vous laissez passer.
 
-<Callout type="note" title="Trois particularités de la CLI que vous allez rencontrer">
-<strong>Le chargement est différé :</strong> <code>install</code> / <code>enable</code> / <code>disable</code> ne modifient que des fichiers et la config ; ils prennent effet au <em>redémarrage</em> de la gateway. Cette leçon installe plusieurs skills et ne redémarre <strong>qu'une fois</strong>, à la fin (étape 8) : si <code>plugins list</code> affiche <code>enabled</code>, cela signifie « configuré », pas « déjà actif ».<br/>
-<strong>Filtrer la liste :</strong> <code>plugins list</code> inclut tous les providers fournis d'origine. Réduisez-la avec <code>--enabled</code>, ou avec <code>--json</code> passé à <code>grep</code>/<code>jq</code>, ou simplement avec <code>… plugins list | grep -i hello</code>.<br/>
-<strong>Bruit :</strong> les lignes <code>[UNDICI-EHPA]</code> sont des avertissements expérimentaux de Node sans conséquence ; préfixez n'importe quelle commande par <code>NODE_NO_WARNINGS=1</code> pour les masquer (omis ci-dessous par souci de concision).
+<Callout type="note" title="Trois subtilités de la CLI">
+<strong>Chargement différé :</strong> <code>install</code>, <code>enable</code> et <code>disable</code> ne modifient que des fichiers et la configuration ; ils ne prennent effet qu'au <em>redémarrage</em> de la gateway. Cette leçon installe plusieurs skills et ne redémarre la gateway <strong>qu'une fois</strong>, à la fin (étape 8). Dans <code>plugins list</code>, <code>enabled</code> signifie donc « configuré », pas encore « actif ».<br/>
+<strong>Filtrer la liste :</strong> <code>plugins list</code> affiche aussi tous les providers fournis d'origine. Réduisez-la avec <code>--enabled</code>, ou en passant la sortie de <code>--json</code> à <code>grep</code>/<code>jq</code>, ou plus simplement avec <code>… plugins list | grep -i hello</code>.<br/>
+<strong>Messages parasites :</strong> les lignes <code>[UNDICI-EHPA]</code> sont des avertissements sans gravité, liés aux fonctionnalités expérimentales de Node. Pour les masquer, préfixez la commande par <code>NODE_NO_WARNINGS=1</code> (nous l'omettons ci-dessous pour alléger).
 </Callout>
 
 <Callout type="note" title="Une blocklist, pas une allowlist en une ligne">
-C'est une <strong>blocklist</strong> : vous refusez les packages auxquels vous ne faites pas confiance. Le modèle L7 d'OpenShell autorise tout par défaut une fois qu'un hôte est accordé, et <strong>les règles de deny l'emportent sur les règles d'allow</strong> : vous ne pouvez donc pas écrire « autoriser uniquement le package X » en une seule règle (un <code>deny /packages/**</code> bloquerait aussi X). La recette pratique : autorisez ClawHub comme source, faites un <code>--add-deny</code> sur les packages que vous rejetez et, ensuite, n'activez que les skills que vous validez.
+Il s'agit d'une <strong>blocklist</strong> : vous refusez les packages auxquels vous ne faites pas confiance. Une fois un hôte autorisé, le modèle L7 d'OpenShell laisse tout passer par défaut, et <strong>les deny rules l'emportent sur les allow rules</strong>. Impossible, donc, d'écrire « autoriser uniquement le package X » en une seule règle : un <code>deny /packages/**</code> bloquerait aussi X. En pratique, autorisez ClawHub comme source, ajoutez un <code>--add-deny</code> pour chaque package que vous rejetez, puis, comme vous le verrez plus loin, n'activez que les skills que vous avez validés.
 </Callout>
 
-## 3. Gouvernance, premier niveau : chaque installation est tracée
+## 3. Gouvernance, niveau 1 : chaque installation laisse une trace
 
-Autorisée ou refusée, chaque installation est un event OCSF audité. Récupérez l'audit trail des deux packages de l'étape 2 :
+Autorisée ou refusée, chaque installation donne lieu à un event OCSF audité. Retrouvez la trace des deux packages de l'étape 2 :
 
 ```bash
 openshell logs shifty --source sandbox -n 2000 | grep -iE 'packages/(weather-api-hub|openclaw-hello-world)'
@@ -123,43 +123,43 @@ HTTP:GET  DENIED  .../packages/weather-api-hub                 [policy:allow_cla
 HTTP:GET  ALLOWED .../packages/openclaw-hello-world/download   [policy:allow_clawhub_ai_443 engine:l7]
 ```
 
-Les deux décisions sont entièrement attribuables : la règle qui a tranché (`allow_clawhub_ai_443`), l'URL exacte du package, le binaire (`/usr/bin/node`), la couche (`l7`). En production, elles partent en flux vers votre SIEM : chaque installation de skill, autorisée ou bloquée, est journalisée et rattachée à la policy qui l'a gouvernée. C'est la réponse à la question *« puis-je prouver quels skills mes agents ont récupérés, et lesquels j'ai refusés ? »* : oui, au package près.
+Chaque décision est entièrement traçable : la règle appliquée (`allow_clawhub_ai_443`), l'URL exacte du package, le binaire (`/usr/bin/node`) et la couche (`l7`). En production, ces events alimentent votre SIEM : chaque installation de skill, autorisée ou bloquée, est journalisée et rattachée à la policy qui l'a régie. Vous pouvez donc répondre à la question *« puis-je prouver quels skills mes agents ont installés, et lesquels j'ai refusés ? »* : oui, package par package.
 
 <Callout type="note" title="Ce grep ne renvoie rien ?">
-Ces lignes de chemin <code>packages/…</code> n'apparaissent que lorsque ClawHub est en mode <strong>L7 enforce</strong> (l'endpoint <code>:rest:enforce</code> de l'étape 2) : c'est ce qui permet au proxy de lire le chemin HTTP. Si ClawHub est autorisé comme simple tunnel <code>:full</code> (L4), le proxy ne voit pas le chemin et il n'y a rien à trouver ; faites plutôt un grep sur <code>clawhub.ai</code> et vous verrez la ligne <code>NET:OPEN</code> ALLOW/DENY. Et si vous avez déjà verrouillé (étape 7), ClawHub est refusé d'office : vous verrez <code>NET:OPEN … DENIED clawhub.ai:443</code>.
+Les lignes contenant un chemin <code>packages/…</code> n'apparaissent que si ClawHub est en mode <strong>L7 enforce</strong> (l'endpoint <code>:rest:enforce</code> de l'étape 2) : c'est ce qui permet au proxy de lire le chemin HTTP. Si ClawHub est autorisé en simple tunnel <code>:full</code> (L4), le proxy ne voit pas le chemin, et le grep ne trouve rien. Cherchez plutôt <code>clawhub.ai</code> : vous verrez la ligne <code>NET:OPEN</code> ALLOW/DENY. Et si vous avez déjà verrouillé la sandbox (étape 7), ClawHub est purement et simplement refusé : vous verrez <code>NET:OPEN … DENIED clawhub.ai:443</code>.
 </Callout>
 
-## 4. Gouvernance, deuxième niveau : *quels skills tournent* (allowlist OpenClaw)
+## 4. Gouvernance, niveau 2 : *quels skills s'exécutent* (allowlist OpenClaw)
 
-Installé ≠ activé sans condition. OpenClaw garde un interrupteur explicite par skill dans `plugins.entries` :
+Un skill installé n'est pas forcément actif. OpenClaw conserve, dans `plugins.entries`, un interrupteur explicite pour chaque skill :
 
 ```bash
 openshell sandbox exec -n shifty -- openclaw config get plugins
 ```
 
-Chaque entrée a un flag `enabled`. Désactivez-en un puis réactivez-le :
+Chaque entrée possède un indicateur `enabled`. Désactivez un skill, puis réactivez-le :
 
 ```bash
 openshell sandbox exec -n shifty -- sh -c \
   'openclaw plugins disable hello-world; openclaw config get plugins.entries.hello-world; openclaw plugins enable hello-world'
 ```
 
-`disable` pose `{"enabled": false}` (effectif au prochain redémarrage de la gateway). Vous pouvez donc livrer un agent avec une sélection choisie : installez-en beaucoup, **n'activez que ceux que vous validez**.
+`disable` écrit `{"enabled": false}` (pris en compte au prochain redémarrage de la gateway). Vous pouvez donc livrer un agent doté d'une sélection soignée : installez-en autant que vous voulez, mais **n'activez que ceux que vous avez validés**.
 
-<Callout type="note" title="Et le troisième niveau : ce qu'un skill peut FAIRE">
-Même un skill <em>activé</em> reste à l'intérieur du sceau. Un skill qui tente de joindre un hôte non autorisé, ou de lancer un binaire absent de la liste <code>binaries</code> de la policy, est bloqué et audité, exactement comme toute autre action de l'agent. Un skill malveillant ne peut ni exfiltrer de données ni contacter l'extérieur, sauf si votre policy autorise déjà cette destination. <strong>Allowlist de sources + allowlist d'activation + policy d'egress/binaires</strong> : trois barrières indépendantes.
+<Callout type="note" title="Niveau 3 : ce qu'un skill peut faire">
+Même <em>activé</em>, un skill reste confiné dans la sandbox. S'il tente de joindre un hôte non autorisé ou de lancer un binaire absent de la liste <code>binaries</code> de la policy, il est bloqué et audité, comme n'importe quelle autre action de l'agent. Un skill malveillant ne peut ni exfiltrer de données ni contacter son serveur, sauf si votre policy autorise déjà cette destination. <strong>Allowlist des sources, allowlist d'activation, policy d'egress et de binaires</strong> : trois barrières indépendantes.
 </Callout>
 
 <Callout type="note" title="Si un skill refuse de se charger">
-Les plugins communautaires doivent résoudre eux-mêmes leurs dépendances d'exécution. Si l'un d'eux échoue au redémarrage (<code>Cannot find module …</code>), il est retiré du registry ; diagnostiquez avec <code>openclaw plugins inspect &lt;id&gt; --runtime</code>. Préférez les skills qui embarquent leurs dépendances.
+Les plugins communautaires doivent résoudre eux-mêmes leurs dépendances runtime. Si l'un d'eux échoue au redémarrage (<code>Cannot find module …</code>), il est retiré du registry des plugins ; diagnostiquez le problème avec <code>openclaw plugins inspect &lt;id&gt; --runtime</code>. Privilégiez les skills qui embarquent leurs dépendances.
 </Callout>
 
-## 5. Écrivez votre propre skill
+## 5. Écrire votre propre skill
 
-Un skill est un petit **plugin TypeScript** construit avec le **SDK de plugins OpenClaw**. Ce SDK (`openclaw/plugin-sdk`) fait partie du package `openclaw`, et l'image de la sandbox le fournit déjà, exactement à la version de votre agent : la sandbox **est** donc votre environnement de développement de skills. Vous écrivez et buildez ici, puis (section suivante) vous **publiez dans votre registry** pour que l'agent verrouillé l'installe comme n'importe quel autre skill. En production, ce même build tourne **en CI à partir de la même image** ; les étapes ci-dessous sont identiques.
+Un skill est un petit **plugin TypeScript** qui s'appuie sur le **SDK de plugins OpenClaw**. Ce SDK (`openclaw/plugin-sdk`) fait partie du package `openclaw`, et l'image de la sandbox l'embarque déjà, exactement dans la version de votre agent : la sandbox **est** donc votre environnement de développement de skills. Vous écrivez et compilez le skill ici, puis (section suivante) vous le **publiez dans votre registry** pour que l'agent verrouillé l'installe comme n'importe quel autre skill. En production, ce même build s'exécute **en CI, à partir de la même image**, avec des étapes identiques.
 
 <Callout type="note" title="Pourquoi ne pas développer sur votre ordinateur portable ?">
-Parce que la chaîne d'outils correspondante se trouve dans l'image : <code>openclaw/plugin-sdk</code> et la CLI <code>openclaw</code> viennent de l'OpenClaw 2026.8.2 de la sandbox elle-même (sur Node 22). <code>openclaw</code> est aussi sur npmjs, mais <code>openclaw@latest</code> exige un Node plus récent et ne correspondrait pas à la version de votre agent. Vous buildez donc <em>là où se trouve le SDK</em> (ici la sandbox, ou en CI un conteneur issu de la même image), et c'est le registry qui transporte le résultat jusqu'à l'agent. La sandbox est la machine de dev ; l'agent est le runtime verrouillé ; le registry est le pont entre les deux.
+Parce que la chaîne d'outils adaptée se trouve dans l'image : <code>openclaw/plugin-sdk</code> et la CLI <code>openclaw</code> proviennent de l'OpenClaw 2026.8.2 installé dans la sandbox (sur Node 22). <code>openclaw</code> est aussi publié sur npmjs, mais <code>openclaw@latest</code> exige une version plus récente de Node et ne correspondrait pas à celle de votre agent. Vous compilez donc <em>là où se trouve le SDK</em> (ici la sandbox, en CI un conteneur issu de la même image), et c'est le registry qui achemine le résultat jusqu'à l'agent. La sandbox sert de poste de développement, l'agent est le runtime verrouillé, et le registry fait le lien entre les deux.
 </Callout>
 
 Générez le squelette d'un projet :
@@ -168,31 +168,31 @@ Générez le squelette d'un projet :
 openshell sandbox exec -n shifty -- openclaw plugins init my-skill --name "My Skill" --directory /sandbox/myskill
 ```
 
-Cela écrit `openclaw.plugin.json` (le manifeste), `src/index.ts` (le code de votre outil), `package.json` et un test. Modifiez `src/index.ts` pour enregistrer votre outil, puis buildez et packagez-le :
+La commande crée `openclaw.plugin.json` (le manifeste), `src/index.ts` (le code de votre outil), `package.json` et un test. Modifiez `src/index.ts` pour enregistrer votre outil, puis compilez et empaquetez le skill :
 
 ```bash
 openshell sandbox exec -n shifty -- sh -c 'cd /sandbox/myskill && npm pkg delete devDependencies.openclaw && npm install --omit=peer --cache /tmp/npm-cache --no-audit --no-fund && ln -sfn "$(npm root -g)/openclaw" node_modules/openclaw && npm run plugin:build'
 ```
 
-Le squelette demande `openclaw@latest` à npm ; à la place, nous lions l'OpenClaw que la sandbox exécute déjà. Les types correspondent alors exactement à la version de votre agent, les versions plus récentes (qui exigent un Node plus récent que celui de l'image) restent à l'écart, et votre workspace de 2 GiB ne se remplit pas d'une deuxième copie (environ 60 MB au lieu de 1,5 GB). Le cache npm va dans `/tmp`, en dehors du volume du workspace.
+Le squelette demande `openclaw@latest` à npm ; nous lions plutôt l'OpenClaw déjà présent dans la sandbox. Ainsi, les types correspondent exactement à la version de votre agent, les versions plus récentes (qui exigent un Node plus récent que celui de l'image) sont écartées, et votre workspace de 2 Gio n'est pas encombré par une seconde copie (environ 60 Mo au lieu de 1,5 Go). Le cache npm est placé dans `/tmp`, hors du volume du workspace.
 
-`npm run plugin:build` lance `tsc` puis `openclaw plugins build` → produit `dist/index.js` et finalise le manifeste. Installez le skill que vous venez de builder :
+`npm run plugin:build` lance `tsc`, puis `openclaw plugins build`, qui produit `dist/index.js` et finalise le manifeste. Installez le skill compilé :
 
 ```bash
 openshell sandbox exec -n shifty -- openclaw plugins install /sandbox/myskill --accept-capabilities --force
 ```
 
-`--force` confirme une source hors ClawHub (ici, un dossier local) : OpenClaw les refuse par défaut. Vous verrez **`Installed plugin: my-skill`** ; sa peer dependency `openclaw` est liée depuis le runtime, vous n'avez donc pas à l'embarquer. Redémarrez la gateway pour le charger (le même redémarrage que dans *Donnez-lui un cerveau*) : il apparaît alors dans `plugins list`, `enabled`, gouverné par exactement la même policy (registry + activation + egress) que n'importe quel skill ClawHub.
+`--force` confirme l'utilisation d'une source extérieure à ClawHub (ici, un dossier local), qu'OpenClaw refuse par défaut. Vous voyez s'afficher **`Installed plugin: my-skill`** ; sa peer dependency `openclaw` est liée au runtime existant, inutile donc de l'embarquer. Redémarrez la gateway pour charger le skill (le même redémarrage que dans *Brancher le modèle*) : il apparaît alors dans `plugins list`, à l'état `enabled`, soumis exactement aux mêmes contrôles (registry, activation, egress) que n'importe quel skill ClawHub.
 
-Installer depuis un dossier local convient pour *tester*. Pour un usage réel, vous voulez que les skills viennent d'un **registry que vous contrôlez** : versionné, partagé entre agents, verrouillable. C'est l'objet de la suite de cette leçon.
+Une installation depuis un dossier local convient pour *tester*. En conditions réelles, les skills doivent provenir d'un **registry que vous contrôlez** : versionné, partagé entre agents, verrouillable. C'est l'objet de la suite de cette leçon.
 
-## 6. Publiez dans un registry qui tourne dans votre cluster
+## 6. Publier dans un registry hébergé dans le cluster
 
-Nous faisons tourner un **registry npm [Verdaccio](https://verdaccio.org)** privé *dans le cluster* : un Deployment + un Service ordinaires dans votre namespace (<code><Ns which="openshell" /></code>), joignable sur <code>registry.<Ns which="openshell" />.svc.cluster.local:4873</code> (dans le shell du lab : `$REGISTRY_HOST`). Dans un lab partagé, chaque participant a son propre registry. Les skills ne sont que des packages npm : un registry npm standard suffit.
+Un **registry npm [Verdaccio](https://verdaccio.org)** privé tourne *dans le cluster* : un simple Deployment avec son Service, dans votre namespace (<code><Ns which="openshell" /></code>), joignable à l'adresse <code>registry.<Ns which="openshell" />.svc.cluster.local:4873</code> (`$REGISTRY_HOST` dans le shell du lab). Dans un lab partagé, chaque participant dispose de son propre registry. Les skills n'étant que des packages npm, un registry npm standard suffit.
 
-### Comment `install @workshop/regtest` sait-il qu'il faut l'utiliser ?
+### Comment `install @workshop/regtest` sait-il quel registry utiliser ?
 
-Il n'existe pas de réglage « registry endpoint » propre à OpenClaw : **c'est du simple routage npm par scope.** `openclaw plugins install @workshop/regtest` est une *spec npm* : OpenClaw confie donc la résolution à `npm`, et npm route par **scope** à l'aide du `~/.npmrc` de votre sandbox (`/sandbox/.npmrc`) :
+OpenClaw n'a pas de réglage « registry endpoint » qui lui soit propre : **c'est le routage par scope standard de npm qui s'applique.** `openclaw plugins install @workshop/regtest` est une *spec npm* : OpenClaw délègue donc la résolution à `npm`, qui choisit le registry selon le **scope**, d'après le fichier `~/.npmrc` de votre sandbox (`/sandbox/.npmrc`) :
 
 ```ini
 registry=http://registry.<openshell-namespace>.svc.cluster.local:4873/
@@ -200,9 +200,9 @@ registry=http://registry.<openshell-namespace>.svc.cluster.local:4873/
 //registry.<openshell-namespace>.svc.cluster.local:4873/:_auth=${TOKEN}   # workshop publish/read token
 ```
 
-Cette ligne `@workshop:registry=…` **est** l'endpoint. Tout ce qui correspond à `@workshop/*` est résolu depuis votre registry interne au cluster ; la ligne `registry=` par défaut y envoie aussi tout le reste (Verdaccio sert de proxy et de cache pour npmjs), et l'étape 7 retire de la policy les règles directes vers ClawHub et npmjs. Le mot `@workshop` n'a rien de spécial : c'est un scope npm, et vous pourriez ajouter `@acme:registry=…` de la même façon pour une deuxième source.
+C'est cette ligne `@workshop:registry=…` qui **fait office** d'endpoint. Tout ce qui correspond à `@workshop/*` est résolu depuis votre registry interne ; la ligne `registry=` par défaut y redirige aussi tout le reste (Verdaccio sert de proxy et de cache pour npmjs), et l'étape 7 retire de la policy les règles d'accès direct à ClawHub et à npmjs. Le nom `@workshop` n'a rien de particulier : c'est un scope npm comme un autre, et vous pourriez ajouter de la même façon `@acme:registry=…` pour une deuxième source.
 
-L'endpoint doit aussi être autorisé par la **policy d'egress** de la sandbox : une règle de plus, de la même forme que celles de ClawHub/npm :
+L'endpoint doit aussi être autorisé par la **policy d'egress** de la sandbox, avec une règle supplémentaire construite comme celles de ClawHub et de npm :
 
 ```yaml
 network_policies:
@@ -216,52 +216,52 @@ network_policies:
       - { path: /usr/local/bin/node }
 ```
 
-<Callout type="note" title="Interne au cluster, mais toujours proxifié et audité">
-La sandbox atteint le registry par le <strong>réseau du cluster</strong> : CoreDNS résout <code>…svc.cluster.local</code>, et la requête passe quand même par le proxy d'egress d'OpenShell. L'installation est donc soumise à la policy et apparaît dans <a href="/learn/live">Live</a>, onglet <strong>Décisions de policy</strong>, sous <code>policy:in-cluster-registry</code>, exactement comme n'importe quel egress vers Internet. Les noms scopés arrivent encodés en URL (<code>@workshop%2Fregtest</code>) : c'est pourquoi cet endpoint a aussi besoin de <code>allow_encoded_slash</code>.
+<Callout type="note" title="Dans le cluster, mais toujours filtré par le proxy et audité">
+La sandbox joint le registry par le <strong>réseau du cluster</strong> : CoreDNS résout <code>…svc.cluster.local</code>, et la requête passe malgré tout par le proxy d'egress d'OpenShell. L'installation est donc soumise à la policy et apparaît sur la page <a href="/learn/live">Live</a>, dans l'onglet <strong>Décisions de policy</strong>, sous <code>policy:in-cluster-registry</code>, exactement comme un egress vers Internet. Les noms scopés arrivent encodés dans l'URL (<code>@workshop%2Fregtest</code>), d'où la nécessité d'<code>allow_encoded_slash</code> sur cet endpoint aussi.
 </Callout>
 
-### Authentifiez la sandbox auprès de votre registry
+### Authentifier la sandbox auprès de votre registry
 
-Verdaccio autorise la **lecture anonyme** mais exige une **publication authentifiée** (`publish: $authenticated`). Avant de pouvoir publier, créez donc un utilisateur de publication et écrivez pour de vrai le `/sandbox/.npmrc` montré plus haut. L'utilisateur est créé via l'API du registry lui-même, **depuis l'intérieur de la sandbox** (par la même règle `in-cluster-registry` que celle qu'utilise l'agent pour ses installations). Exécutez ceci une fois dans le shell du lab ; c'est une **seule ligne** (`openshell sandbox exec` refuse les arguments sur plusieurs lignes) :
+Verdaccio autorise la **lecture anonyme**, mais la **publication exige une authentification** (`publish: $authenticated`). Avant de publier, créez donc un utilisateur de publication et écrivez réellement le fichier `/sandbox/.npmrc` présenté plus haut. L'utilisateur est créé via l'API du registry, **depuis la sandbox** (par la même règle `in-cluster-registry` que celle qu'emprunte l'agent pour ses installations). Lancez cette commande une fois dans le shell du lab. Elle tient sur **une seule ligne**, car `openshell sandbox exec` refuse les arguments multilignes :
 
 ```bash
 openshell sandbox exec -n shifty -- sh -c 'R='"$REGISTRY_HOST"':4873; node -e "const h=require(\"http\"),b=JSON.stringify({name:\"workshop\",password:\"wad26-skills\"});const q=h.request(\"http://$R/-/user/org.couchdb.user:workshop\",{method:\"PUT\",agent:false,headers:{\"content-type\":\"application/json\",\"content-length\":Buffer.byteLength(b)}},r=>{r.resume();r.on(\"end\",()=>console.log(\"registry user:\",r.statusCode))});q.write(b);q.end();"; printf "registry=http://%s/\n@workshop:registry=http://%s/\n//%s/:_auth=%s\n" "$R" "$R" "$R" "$(printf workshop:wad26-skills | base64)" > /sandbox/.npmrc; echo "wrote /sandbox/.npmrc"'
 ```
 
-Vous devez obtenir `registry user: 201` (ou `409` s'il existe déjà) et `wrote /sandbox/.npmrc`. Ce `node -e` crée l'utilisateur de publication Verdaccio (la règle d'egress du registry n'autorise que `node`/`npm`, d'où la création avec node et non `curl`) ; le `printf` écrit le `/sandbox/.npmrc` montré plus haut : `@workshop/*` (et le registry par défaut) sont désormais résolus vers Verdaccio, et le token `_auth` vous permet de publier. (Le provisionneur scripté fait cette même étape à la création de l'agent ; sur le parcours pratique, vous la faites ici.)
+Vous devez obtenir `registry user: 201` (ou `409` si l'utilisateur existe déjà), puis `wrote /sandbox/.npmrc`. Le `node -e` crée l'utilisateur de publication Verdaccio (la règle d'egress du registry n'autorise que `node`/`npm` : on passe donc par node plutôt que par `curl`) ; le `printf` écrit le `/sandbox/.npmrc` présenté plus haut. Désormais, `@workshop/*` (comme le registry par défaut) est résolu vers Verdaccio, et le token `_auth` vous permet de publier. (Le provisionnement scripté effectue cette même étape à la création de l'agent ; dans le parcours pratique, c'est à vous de la faire ici.)
 
-### Flux A : publiez votre propre skill
+### Cas A — publier votre propre skill
 
-Vous avez construit et testé un skill à l'étape 5. Donnez-lui un nom scopé et publiez-le (la sandbox est maintenant authentifiée grâce à l'étape précédente) :
+Vous avez construit et testé un skill à l'étape 5. Donnez-lui un nom scopé et publiez-le (la sandbox est maintenant authentifiée, grâce à l'étape précédente) :
 
 ```bash
 openshell sandbox exec -n shifty -- sh -c 'cd /sandbox/myskill && npm pkg set name=@workshop/myskill && npm pkg delete private && npm publish'
 ```
 
-`npm publish` voit le scope `@workshop` et pousse vers votre registry interne au cluster. Installez-le maintenant par son nom, comme le ferait n'importe quel agent :
+`npm publish` reconnaît le scope `@workshop` et envoie le package vers votre registry interne. Installez-le ensuite par son nom, comme le ferait n'importe quel agent :
 
 ```bash
 openshell sandbox exec -n shifty -- openclaw plugins install @workshop/myskill --accept-capabilities --force
 ```
 
-Vous verrez la récupération scopée (`GET …:4873/@workshop%2Fmyskill`, autorisée sous `policy:in-cluster-registry`), puis **`Installed plugin: my-skill`** (l'id issu du manifeste du plugin). Comme toute installation de plugin dans cette leçon, cela prend **une à deux minutes** : npm récupère et installe environ 120 dépendances dans votre sandbox. Attendez la ligne `Installed plugin`.
+Vous voyez passer la requête scopée (`GET …:4873/@workshop%2Fmyskill`, autorisée par `policy:in-cluster-registry`), puis **`Installed plugin: my-skill`** (l'identifiant défini dans le manifeste du plugin). Comme toutes les installations de plugins de cette leçon, l'opération prend **une à deux minutes** : npm télécharge et installe environ 120 dépendances dans votre sandbox. Attendez la ligne `Installed plugin`.
 
-### Flux B : mettez en miroir un skill ClawHub *vérifié*
+### Cas B — mettre en miroir un skill ClawHub *vérifié*
 
-L'autre façon de faire entrer un skill dans votre registry : en prendre un sur ClawHub, **relire son code** et le republier sous votre propre scope. C'est le contrôle de la chaîne d'approvisionnement : un humain le vérifie *une fois*, et à partir de là, les agents installent *votre copie*, jamais celle d'Internet. Prenez le `hello-world` récupéré à l'étape 2, changez son scope, publiez :
+L'autre façon de faire entrer un skill dans votre registry consiste à le récupérer sur ClawHub, à **relire son code**, puis à le republier sous votre propre scope. C'est là que s'exerce le contrôle de la supply chain (chaîne d'approvisionnement) : un humain vérifie le skill *une fois*, et les agents installent ensuite *votre copie*, jamais celle d'Internet. Reprenez le `hello-world` installé à l'étape 2, changez son scope et publiez-le :
 
 ```bash
 openshell sandbox exec -n shifty -- sh -c 'cp -r /sandbox/.openclaw/extensions/hello-world /sandbox/mirror-hello && cd /sandbox/mirror-hello && npm pkg set name=@workshop/hello-world && npm publish'
 openshell sandbox exec -n shifty -- openclaw plugins install @workshop/hello-world --accept-capabilities --force
 ```
 
-C'est maintenant un package à part entière dans *votre* registry (`@workshop/hello-world@0.1.0`), installé depuis celui-ci, sans aller-retour vers ClawHub au moment de l'installation. En production, ce « vérifier → mettre en miroir → publier » est une étape de CI ; ici, vous l'avez fait à la main pour en voir les rouages.
+C'est désormais un package à part entière de *votre* registry (`@workshop/hello-world@0.1.0`), installé depuis celui-ci, sans aucun aller-retour vers ClawHub au moment de l'installation. En production, la séquence « vérifier → mettre en miroir → publier » est une étape de CI ; ici, vous l'avez déroulée à la main pour en comprendre le mécanisme.
 
-## 7. Verrouillez la porte : une seule source de skills
+## 7. Fermer la porte : une seule source de skills
 
-Tout ce que vous avez fait depuis l'étape 1 n'a fonctionné que parce que vous avez **ouvert ClawHub temporairement**. Refermez-le maintenant, et allez un cran plus loin que la policy avec laquelle votre agent a démarré (qui autorise aussi npm public et la recherche web) : **le registry devient sa seule source de skills.** Le registry *par défaut* de npm pointe déjà vers Verdaccio (qui a npmjs en uplink et met les dépendances en cache) : vous retirez donc ClawHub, npm public et la recherche web, et il ne reste **qu'une règle d'egress que vous écrivez vous-même** (la règle d'inférence est composée par le provider attaché et reste en place) :
+Depuis l'étape 1, tout n'a fonctionné que parce que vous aviez **ouvert ClawHub temporairement**. Refermez-le maintenant, et allez même plus loin que la policy de départ de votre agent (qui autorise aussi le registry npm public et la recherche web) : **le registry devient sa seule source de skills.** Le registry npm *par défaut* pointe déjà vers Verdaccio (qui relaie npmjs en amont et met les dépendances en cache). Vous pouvez donc supprimer ClawHub, npm public et la recherche web, pour ne garder qu'**une seule règle d'egress, écrite par vous** (la règle d'inférence, ajoutée par le provider attaché, reste en place).
 
-Écrivez cette policy verrouillée dans un fichier, puis appliquez-la (le heredoc insère l'hôte de *votre* registry à partir de `$REGISTRY_HOST`). `openshell policy set` lit le fichier depuis votre shell du lab et **remplace** toute la policy : c'est donc un document de policy complet (filesystem + process + l'unique règle d'egress), pas seulement le bloc réseau :
+Écrivez cette policy verrouillée dans un fichier, puis appliquez-la (le heredoc y insère l'hôte de *votre* registry à partir de `$REGISTRY_HOST`). `openshell policy set` lit le fichier depuis votre shell du lab et **remplace** la policy entière : le document doit donc être complet (système de fichiers, processus et l'unique règle d'egress), et pas seulement contenir le bloc réseau :
 
 ```bash
 cat > locked.yaml <<YAML
@@ -284,9 +284,9 @@ YAML
 openshell policy set shifty --policy locked.yaml --wait
 ```
 
-(Cela limite l'egress au seul registry. Si vous avez fait la leçon sur la recherche web et voulez garder DuckDuckGo, remettez sa règle `websearch` dans le fichier avant d'appliquer.)
+(L'egress est ainsi limité au seul registry. Si vous avez suivi la leçon « Ajouter la recherche web » et souhaitez garder DuckDuckGo, réintégrez sa règle `websearch` dans le fichier avant de l'appliquer.)
 
-Prouvez maintenant que la frontière tient. ClawHub a disparu :
+Vérifiez maintenant que la frontière tient. ClawHub n'est plus joignable :
 
 ```bash
 # refused: ClawHub is no longer in the policy (expect-fail: 403|fetch failed|denied)
@@ -303,31 +303,31 @@ NET:OPEN [MED] DENIED /usr/bin/node -> clawhub.ai:443
         [policy:- engine:opa] [reason: endpoint clawhub.ai:443 is not allowed by any policy]
 ```
 
-…mais votre registry sert toujours tout : les skills **et** leurs dépendances transitives (Verdaccio récupère un package absent du cache depuis son uplink npmjs, le met en cache, puis le sert à la sandbox) :
+…mais votre registry continue de tout fournir : les skills **et** leurs dépendances transitives (quand un package n'est pas en cache, Verdaccio le récupère auprès de npmjs, le met en cache et le sert à la sandbox) :
 
 ```bash
 openshell sandbox exec -n shifty -- openclaw plugins install @workshop/hello-world --accept-capabilities --force   # ✓ installed
 ```
 
-Ce refus apparaît en rouge dans l'onglet **Décisions de policy** de Live. L'agent n'a plus qu'une seule façon d'acquérir une capacité : un package que *vous* avez placé dans *votre* registry.
+Le refus apparaît en rouge dans l'onglet **Décisions de policy** de la page Live. L'agent n'a plus qu'un seul moyen d'acquérir une nouvelle capacité : un package que *vous* avez déposé dans *votre* registry.
 
-## 8. Regardez l'agent l'utiliser
+## 8. Voir l'agent utiliser le skill
 
-Un plugin ne devient actif qu'au **redémarrage** de la gateway (étape 4 ci-dessus). C'est la même commande en une ligne que dans [Donnez-lui un cerveau](/learn/configure) (tuer le PID enregistré, relancer sous `setsid` dans sa propre session), avec une vérification finale que `hello` est bien chargé :
+Un plugin ne devient actif qu'au **redémarrage** de la gateway (voir l'étape 4). Vous retrouvez la commande d'une ligne utilisée dans [Brancher le modèle](/learn/configure) (arrêt du processus dont le PID a été enregistré, relance sous `setsid` dans sa propre session), complétée d'une vérification finale du chargement de `hello` :
 
 ```bash
 openshell sandbox exec -n shifty -- sh -c \
   'cd /sandbox && pkill -f "^openclaw-gateway"; sleep 2; pkill -9 -f "^openclaw-gateway"; setsid nohup openclaw gateway run --port 30789 --bind lan --auth password --password '"${OPENCLAW_GATEWAY_PASSWORD:-openclaw}"' --allow-unconfigured >/sandbox/gateway.log 2>&1 < /dev/null & echo $! > gateway.pid; for i in $(seq 1 15); do sed "s/\x1b\[[0-9;]*m//g" /sandbox/gateway.log | grep -qE "\[gateway\] ready" && break; sleep 2; done; openclaw plugins list --enabled | grep -i hello'
 ```
 
-Vous verrez **Hello World** dans la liste des plugins activés. (Le redémarrage de la gateway coupe brièvement le forward de l'UI : le sidecar `openclaw-forward` du pod du workshop se reconnecte tout seul en quelques secondes ; rechargez simplement l'UI.)
+**Hello World** apparaît dans la liste des plugins activés. (Le redémarrage de la gateway coupe brièvement le forward de l'interface ; le sidecar `openclaw-forward` du pod workshop se reconnecte de lui-même en quelques secondes. Il suffit de recharger l'interface.)
 
-Maintenant, <ServiceLink service="openclaw">ouvrez l'UI OpenClaw</ServiceLink> et demandez à l'agent, en langage naturel :
+<ServiceLink service="openclaw">Ouvrez maintenant l'interface OpenClaw</ServiceLink> et demandez à l'agent, en anglais :
 
-> utilise l'outil hello pour saluer Red Hat
+> use the hello tool to greet Red Hat
 
-L'agent choisit l'outil `hello`, l'appelle avec `name: "Red Hat"`, et l'outil renvoie **`Hello, Red Hat!`**, que l'agent vous retransmet dans le chat. (Pas de nom ? La valeur par défaut est `Hello, world!`.) C'est tout l'intérêt : vous êtes passé de *installé* au **modèle qui invoque réellement votre skill**, et il s'est exécuté dans le même sceau que tout le reste. Si le skill tentait de joindre un hôte hors de la policy, il serait bloqué et audité, exactement comme toute autre action.
+L'agent choisit l'outil `hello`, l'appelle avec `name: "Red Hat"`, et l'outil renvoie **`Hello, Red Hat!`**, que l'agent vous transmet dans le chat. (Sans nom, l'outil répond `Hello, world!`.) Vous êtes ainsi passé d'un skill simplement *installé* à un **skill réellement invoqué par le modèle**, exécuté dans la même sandbox isolée que tout le reste. Si le skill tentait de joindre un hôte hors de la policy, il serait bloqué et audité, comme n'importe quelle autre action.
 
-<Callout type="rh" title="Des skills, des capacités que vous pouvez prouver">
-Sur la plupart des stacks d'agents, « installer un plugin » revient à ouvrir tout votre réseau à du code arbitraire. Ici, un skill est contrôlé de trois façons (registry, activation et egress), et chaque octet qu'il fait transiter figure dans l'audit log. C'est la différence entre un agent <em>extensible</em> et un agent extensible <em>et</em> gouvernable.
+<Callout type="rh" title="Des skills sous contrôle, preuves à l'appui">
+Sur la plupart des plateformes d'agents, « installer un plugin » revient à ouvrir tout votre réseau à du code arbitraire. Ici, un skill doit franchir trois barrières (registry, activation, egress), et chaque octet qu'il échange figure dans l'audit log. Toute la différence entre un agent <em>extensible</em> et un agent extensible <em>et</em> gouvernable.
 </Callout>

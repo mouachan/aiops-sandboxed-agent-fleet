@@ -1,24 +1,24 @@
-Avant de lancer des commandes d'agent, comprenez la couche qui *gère* l'agent : **OpenShell**, le plan de contrôle des sandboxes. Tout ici n'est que du `oc` standard sur le cluster, sans aucun agent pour l'instant.
+Avant de lancer la moindre commande d'agent, il faut comprendre la couche qui *gère* l'agent : **OpenShell**, le control plane (plan de contrôle) des sandboxes. Dans cette leçon, vous n'utilisez que de simples commandes `oc` sur le cluster ; aucun agent n'entre encore en jeu.
 
 ## La gateway OpenShell
 
-OpenShell tourne sous forme de StatefulSet. Regardez-le :
+OpenShell est déployé sous forme de StatefulSet. Affichez-le :
 
 ```bash
 oc -n "$OPENSHELL_NS" get statefulset,pods,svc
 ```
 
-Son **compute driver Kubernetes** surveille les sandboxes en continu. Une gateway en bonne santé l'écrit dans ses logs toutes les quelques secondes :
+Son **compute driver Kubernetes** surveille en permanence les sandboxes. Une gateway en bonne santé le consigne dans ses logs, à quelques secondes d'intervalle :
 
 ```bash
 oc -n "$OPENSHELL_NS" logs openshell-0 | grep -i "Listing sandboxes" | tail -3
 ```
 
-`Listing sandboxes from Kubernetes` = le plan de contrôle est vivant et surveille.
+Si vous voyez `Listing sandboxes from Kubernetes`, le control plane est opérationnel et surveille les sandboxes.
 
-## L'API sandbox (un CRD)
+## L'API des sandboxes : un CRD
 
-Une « sandbox » est une ressource personnalisée Kubernetes : `sandboxes.agents.x-k8s.io`. C'est ainsi que la plateforme représente l'espace isolé d'un agent :
+Une « sandbox » est une ressource personnalisée Kubernetes, `sandboxes.agents.x-k8s.io`. C'est sous cette forme que la plateforme représente l'environnement isolé d'un agent :
 
 ```bash
 oc get crd sandboxes.agents.x-k8s.io
@@ -26,37 +26,37 @@ oc get crd sandboxes.agents.x-k8s.io
 
 ### Lister les sandboxes
 
-Listez les sandboxes de votre namespace (la gateway les crée juste à côté d'elle) :
+Listez les sandboxes de votre namespace (la gateway les crée dans son propre namespace) :
 
 ```bash
 oc get sandboxes -n "$OPENSHELL_NS"
 ```
 
-Dans ce lab, vous voyez déjà les cinq agents de la fleet de la Partie VI (`default--logs`, `default--metrics`, …) ; votre propre agent apparaîtra ici quand vous l'aurez construit dans la Partie IV, sous le nom `default--shifty` (la gateway ajoute le nom du workspace en préfixe). Ce qui compte, c'est la *forme* : chaque agent créé par la gateway apparaît ici comme un CR `Sandbox` (`agents.x-k8s.io/v1beta1`) que vous pouvez inspecter avec un simple `oc` (`oc -n "$OPENSHELL_NS" describe sandbox default--<name>`). C'est toute la surface de l'API : un objet Kubernetes.
+Dans ce lab, vous voyez déjà les cinq agents de la fleet de la partie VI (`default--logs`, `default--metrics`, …). Votre propre agent apparaîtra dans cette liste une fois créé, dans la partie IV, sous le nom `default--shifty` (la gateway ajoute le nom du workspace en préfixe). Ce qui compte, c'est la *forme* : chaque agent créé par la gateway se présente ici comme un CR `Sandbox` (`agents.x-k8s.io/v1beta1`), que vous pouvez inspecter avec un simple `oc` (`oc -n "$OPENSHELL_NS" describe sandbox default--<name>`). L'API se résume à cela : un objet Kubernetes.
 
-## Policies : ce qu'une sandbox de la gateway a le droit de faire
+## Policies : ce qu'une sandbox a le droit de faire
 
-Une policy de sandbox gérée par OpenShell est **un seul fichier YAML en deux moitiés** : une section réseau *dynamique*, rechargée à chaud sur une sandbox en marche, et des sections système de fichiers + processus *statiques*, figées à la création et appliquées dans le noyau. Parcourez chaque partie :
+La policy d'une sandbox gérée par OpenShell tient dans **un seul fichier YAML, en deux parties** : une section réseau *dynamique*, qui accepte le hot-reload (rechargement à chaud) sur une sandbox en cours d'exécution, et des sections *statiques* (système de fichiers et processus), figées à la création et appliquées par le noyau. Cliquez sur chaque partie pour l'explorer :
 
 <PolicyExplorer />
 
-Pour les sandboxes créées via la gateway OpenShell, chaque section correspond à un vrai point d'application. Rien ici n'est indicatif :
+Pour les sandboxes créées par la gateway OpenShell, chaque section correspond à un mécanisme d'application réel ; rien n'est purement indicatif :
 
-| Couche | Protège contre | Appliqué par | Modifiable à chaud ? |
+| Couche | Protège contre | Appliquée par | Modifiable à chaud ? |
 | --- | --- | --- | --- |
-| `network_policies` | egress / exfiltration de données | proxy CONNECT + OPA, par binaire | ✅ rechargement à chaud |
-| `filesystem` | altération des binaires, vol d'identifiants | **Landlock LSM** (noyau) | ❌ recréer |
-| `process` | élévation de privilèges, fork bombs, syscalls interdits | **seccomp-BPF** + abandon des privilèges | ❌ recréer |
+| `network_policies` | egress non autorisé, exfiltration de données | proxy CONNECT + OPA, par binaire | ✅ hot-reload |
+| `filesystem` | altération des binaires, vol d'identifiants | **Landlock LSM** (noyau) | ❌ recréer la sandbox |
+| `process` | élévation de privilèges, fork bombs, appels système interdits | **seccomp-BPF** + abandon des privilèges | ❌ recréer la sandbox |
 
-### Voyez-la sur votre cluster
+### Sur votre cluster
 
-Le dépôt fournit la policy OpenShell que votre agent va utiliser. Affichez le vrai fichier :
+Le dépôt contient la policy OpenShell que votre agent utilisera. Affichez le fichier :
 
 ```bash
 cat ~/workshop/policies/openclaw-sandbox.yaml
 ```
 
-Elle est courte. La voici en entier, et chaque ligne est un garde-fou :
+Il est court. Le voici en entier ; chaque ligne est un guardrail (garde-fou) :
 
 ```yaml
 version: 1
@@ -97,36 +97,36 @@ network_policies:                        # a MAP of named egress rules — deny-
     binaries: [ { path: /usr/bin/node }, { path: /usr/local/bin/node } ]
 ```
 
-Lisez-la maintenant bloc par bloc :
+Reprenons-le bloc par bloc :
 
-- **`version`** — la version du schéma de policy. Simplement `1`.
-- **`filesystem_policy`** — la vue qu'a l'agent du disque. `read_only` couvre les répertoires système (il ne peut donc pas altérer les binaires ni les configs) ; `read_write` se limite **uniquement** à son home (`/sandbox`), `/tmp`, `/var/tmp` et `/dev/null`. Tout ce qui n'est pas listé (`/workspace`, le système de fichiers de l'hôte) n'existe tout simplement pas pour l'agent.
-- **`landlock`** — ces règles de système de fichiers ne sont pas indicatives. Elles sont appliquées par **Landlock**, un module de sécurité du noyau Linux : même un agent compromis ne peut pas en sortir.
-- **`process`** — l'agent tourne avec l'utilisateur non privilégié `sandbox`, jamais root (renforcé par seccomp-BPF + abandon des privilèges).
-- **`network_policies`** — le cœur du dispositif : une **map** de règles nommées, deny-by-default. Chaque règle associe des **endpoints** (l'hôte + le port que l'agent peut atteindre) à des **binaires** (les exécutables autorisés à utiliser cet egress). Ici, il y en a trois (le registry de skills interne au cluster, npm public et DuckDuckGo), toutes réservées à `node`/`npm`, et rien d'autre. (Dans un lab partagé, l'hôte du registry porte votre propre namespace, <code>registry.<Ns which="openshell" />.svc.cluster.local</code> ; le workshop le réécrit au démarrage.)
+- **`version`** — la version du schéma de policy, ici simplement `1`.
+- **`filesystem_policy`** — ce que l'agent voit du disque. `read_only` couvre les répertoires système (l'agent ne peut donc modifier ni les binaires ni les fichiers de configuration) ; `read_write` se limite **strictement** à son répertoire personnel (`/sandbox`), à `/tmp`, `/var/tmp` et `/dev/null`. Tout ce qui ne figure pas dans la liste, comme `/workspace` ou le système de fichiers de l'hôte, n'existe tout simplement pas pour lui.
+- **`landlock`** — ces règles ne sont pas de simples recommandations : elles sont appliquées par **Landlock**, un module de sécurité du noyau Linux. Même un agent compromis ne peut pas s'en affranchir.
+- **`process`** — l'agent s'exécute sous l'utilisateur non privilégié `sandbox`, jamais en root (ce que renforcent seccomp-BPF et l'abandon des privilèges).
+- **`network_policies`** — le cœur de la policy : une **map** de règles nommées, en deny-by-default. Chaque règle associe des **endpoints** (l'hôte et le port que l'agent peut joindre) à des **binaires** (les exécutables autorisés à emprunter cette sortie). Ici, trois règles : le registry de skills interne au cluster, le registry npm public et DuckDuckGo, toutes réservées à `node`/`npm`, et à eux seuls. (Dans un lab partagé, le nom d'hôte du registry contient votre propre namespace, <code>registry.<Ns which="openshell" />.svc.cluster.local</code> ; le workshop le réécrit au démarrage.)
 
-Lisez-la comme une seule phrase : *« `node` peut ouvrir `:443` vers `duckduckgo.com`, `curl` non, et personne ne peut aller ailleurs. »* C'est cet egress **par binaire et par hôte** qui empêche un agent victime d'une injection de prompt d'exfiltrer des données par un canal inattendu : un pare-feu qui bloque tout, avec de minuscules portes étiquetées.
+Autrement dit : *« `node` peut ouvrir une connexion sur `:443` vers `duckduckgo.com`, `curl` ne le peut pas, et personne ne peut aller ailleurs. »* C'est ce contrôle de l'egress **par binaire et par hôte** qui empêche un agent victime d'une prompt injection d'exfiltrer des données par un canal détourné. En somme, un pare-feu qui bloque tout, percé de quelques portes étroites et bien identifiées.
 
-<Callout type="note" title="Où est l'endpoint du modèle ?">
-Remarquez que la policy n'a <strong>aucune règle pour l'inférence</strong>. Cet accès vient d'un <em>provider</em> attaché à la sandbox (dernière section ci-dessous) : son provider profile ajoute l'endpoint d'inférence à la policy <em>effective</em> de la sandbox (pour les binaires listés uniquement) et sert d'intermédiaire pour la clé. Sans provider attaché, un appel vers l'hôte d'inférence est refusé comme n'importe quoi d'autre.
+<Callout type="note" title="Et l'endpoint du modèle ?">
+Notez que la policy ne contient <strong>aucune règle pour l'inférence</strong>. Cet accès est fourni par un <em>provider</em> attaché à la sandbox (voir la dernière section) : son provider profile ajoute l'endpoint d'inférence à la policy <em>effective</em> de la sandbox, pour les seuls binaires listés, et se charge de la clé. Sans provider attaché, un appel vers l'hôte d'inférence est refusé, comme tout le reste.
 </Callout>
 
-Vous verrez cette policy exacte **appliquée en direct** dans la leçon suivante (sur une sandbox jetable), puis à nouveau quand vous construirez votre agent dans la Partie IV : `openshell policy get <name>` affiche la policy *effective* (ajoutez `--full` pour inclure les règles composées par les providers). La gateway compile ce fichier en règles au niveau du noyau (Landlock/seccomp) et au niveau du proxy (egress OPA).
+Vous verrez cette même policy **appliquée en direct** dans la leçon suivante, sur une sandbox jetable, puis à nouveau en construisant votre agent dans la partie IV. `openshell policy get <name>` affiche la policy *effective* (ajoutez `--full` pour y inclure les règles apportées par les providers). La gateway traduit ce fichier en règles appliquées par le noyau (Landlock/seccomp) et par le proxy (egress filtré par OPA).
 
-<Callout type="tip" title="La boucle d'itération">
-Pour une sandbox créée par la gateway, commencez en mode <strong>audit</strong> (violations journalisées, pas bloquées), surveillez les refus avec <code>openshell logs &lt;name&gt;</code>, ajoutez dans <code>network_policies</code> les endpoints dont vous avez vraiment besoin, puis passez en mode <strong>enforce</strong>. Vous resserrez sans interruption : les règles réseau se rechargent à chaud.
+<Callout type="tip" title="Affiner la policy par itérations">
+Pour une sandbox créée par la gateway, commencez en mode <strong>audit</strong> (les violations sont journalisées mais pas bloquées) et repérez les refus dans <code>openshell logs &lt;name&gt;</code>. Ajoutez à <code>network_policies</code> les endpoints dont vous avez réellement besoin, puis passez en mode <strong>enforce</strong>. Comme les règles réseau sont prises en compte par hot-reload, vous durcissez la policy sans interruption de service.
 </Callout>
 
 <Callout type="note" title="Qui réconcilie la sandbox ?">
-Le <strong>contrôleur</strong> agent-sandbox (kubernetes-sigs/agent-sandbox v1.0.3, installé une fois par cluster) transforme le CR <code>Sandbox</code> en vrai pod, sous le RBAC et les Security Context Constraints du namespace : les sandboxes tournent sous la SCC par défaut <code>restricted-v2</code>, sans aucun droit privilégié. OpenShell est le plan de contrôle plus large : la gateway, plus un <strong>supervisor</strong> par sandbox (vous verrez un pod <code>os-supervisor-…</code> à côté de chacune).
+Le <strong>contrôleur</strong> agent-sandbox (kubernetes-sigs/agent-sandbox v1.0.3, installé une seule fois par cluster) transforme le CR <code>Sandbox</code> en pod, dans le respect du RBAC et des Security Context Constraints du namespace. Les sandboxes s'exécutent sous la SCC par défaut <code>restricted-v2</code>, sans aucun privilège supplémentaire. OpenShell constitue le control plane au sens large : la gateway, plus un <strong>supervisor</strong> par sandbox (un pod <code>os-supervisor-…</code> accompagne chacune d'elles).
 </Callout>
 
 ## Identifiants : providers et placeholders
 
-La gateway est aussi l'endroit où vivent les secrets, sous la forme de deux objets du plan de contrôle que vous utiliserez dans la Partie IV :
+C'est aussi la gateway qui conserve les secrets, sous la forme de deux objets du control plane que vous utiliserez dans la partie IV :
 
-- Un **provider profile** : le contrat d'accès pour un type d'identifiant. Il indique vers quel **hôte + port** l'identifiant peut être envoyé, comment (par ex. `Authorization: Bearer`), la variable d'environnement qui le porte dans la sandbox (`OPENAI_API_KEY`) et quels **binaires** peuvent l'envoyer. Aucun secret dedans.
-- Un **provider** : une instance d'un profile qui détient le vrai **identifiant** (votre clé), stocké côté gateway. Vous l'**attachez** aux sandboxes.
+- Le **provider profile** — le contrat d'accès d'un type d'identifiant : vers quels **hôte et port** il peut être envoyé, sous quelle forme (par exemple `Authorization: Bearer`), quelle variable d'environnement le porte dans la sandbox (`OPENAI_API_KEY`) et quels **binaires** ont le droit de l'envoyer. Il ne contient aucun secret.
+- Le **provider** — une instance de ce profile, qui détient l'**identifiant** proprement dit (votre clé), stocké côté gateway. Vous l'**attachez** ensuite aux sandboxes.
 
 ```bash-ref
 openshell provider profile import -f "$NEMOCLAW_INFERENCE_PROFILE"      # the access contract
@@ -136,6 +136,6 @@ openshell sandbox create … --provider default                            # att
 openshell provider list                                                  # never prints key values
 ```
 
-Ces commandes sont données pour référence : vous les exécuterez réellement dans la **Partie IV**, pas ici. Dans une sandbox attachée, `$OPENAI_API_KEY` ne contient qu'un **placeholder** (`openshell:resolve:env:…`). L'agent appelle votre vrai endpoint avec ce placeholder ; le proxy d'egress du supervisor le repère et le remplace par la vraie clé, uniquement vers l'hôte du profile et uniquement depuis ses binaires. Deux conséquences, toutes deux positives : l'agent **ne détient jamais votre clé**, et un placeholder volé ne vaut rien ailleurs.
+Ces commandes ne sont données qu'à titre d'exemple : vous les lancerez pour de bon dans la **partie IV**, pas ici. Dans une sandbox à laquelle un provider est attaché, `$OPENAI_API_KEY` ne contient qu'un **placeholder** (`openshell:resolve:env:…`). L'agent appelle votre véritable endpoint avec cette valeur ; le proxy d'egress du supervisor la reconnaît et la remplace par la vraie clé, uniquement vers l'hôte prévu par le profile et uniquement pour ses binaires. Double avantage : l'agent **ne détient jamais votre clé**, et un placeholder volé ne sert à rien ailleurs.
 
-Ensuite : lancez une sandbox jetable et pilotez en pratique chaque élément vu ici : status, logs, policy, providers, forward.
+Dans la leçon suivante, vous allez créer une sandbox jetable et manipuler vous-même chacun de ces éléments : statut, logs, policy, providers, forward.
