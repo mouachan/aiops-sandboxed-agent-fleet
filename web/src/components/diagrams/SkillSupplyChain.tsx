@@ -1,4 +1,6 @@
+"use client";
 import { DIAGRAM as C } from "./palette";
+import { useT } from "@/lib/lang-client";
 
 // The governed skill supply chain: skills enter ONLY through your private
 // in-cluster registry — either authored fresh or vetted-and-mirrored from
@@ -20,9 +22,10 @@ const Arrow = ({ x1, y1, x2, y2, label, color = C.ctrl, dash, lx, ly }: { x1: nu
 );
 
 export function SkillSupplyChain() {
+  const t = useT();
   return (
     <figure className="my-6 overflow-hidden rounded-xl border border-[var(--color-line)]">
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" fontFamily={C.font} role="img" aria-label="Governed skill supply chain">
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" fontFamily={C.font} role="img" aria-label={t("Governed skill supply chain", "Chaîne d'approvisionnement gouvernée des skills")}>
         <defs>
           <marker id="ssc_ar" markerWidth="10" markerHeight="10" refX="7" refY="3.2" orient="auto"><path d="M0,0 L8,3.2 L0,6.4 Z" fill={C.ctrl} /></marker>
           <marker id="ssc_grn" markerWidth="10" markerHeight="10" refX="7" refY="3.2" orient="auto"><path d="M0,0 L8,3.2 L0,6.4 Z" fill={C.green} /></marker>
@@ -31,36 +34,36 @@ export function SkillSupplyChain() {
         <rect x={0} y={0} width={W} height={H} fill={C.bg} />
 
         {/* column labels */}
-        <text x={120} y={28} fontSize={11.5} fill={C.sub} textAnchor="middle" fontWeight={700}>① CURATE</text>
-        <text x={450} y={28} fontSize={11.5} fill={C.sub} textAnchor="middle" fontWeight={700}>② ONE GOVERNED REGISTRY</text>
-        <text x={790} y={28} fontSize={11.5} fill={C.sub} textAnchor="middle" fontWeight={700}>③ INSTALL &amp; RUN</text>
+        <text x={120} y={28} fontSize={11.5} fill={C.sub} textAnchor="middle" fontWeight={700}>{t("① CURATE", "① SÉLECTIONNER")}</text>
+        <text x={450} y={28} fontSize={11.5} fill={C.sub} textAnchor="middle" fontWeight={700}>{t("② ONE GOVERNED REGISTRY", "② UN SEUL REGISTRY GOUVERNÉ")}</text>
+        <text x={790} y={28} fontSize={11.5} fill={C.sub} textAnchor="middle" fontWeight={700}>{t("③ INSTALL & RUN", "③ INSTALLER ET EXÉCUTER")}</text>
 
         {/* curate sources */}
-        <Node x={40} y={88} w={170} fill={C.greenTint} stroke={C.nvidia} title="Author your own 🛠️" sub="init · build · test" />
-        <Node x={40} y={250} w={170} fill={C.lav} stroke={C.auth} title="Mirror a ClawHub skill" sub="review the source · vet ✓" />
-        <Node x={40} y={332} w={170} h={48} fill={C.gray} stroke={C.border} title="ClawHub 🪝" sub="public skill hub" />
+        <Node x={40} y={88} w={170} fill={C.greenTint} stroke={C.nvidia} title={t("Author your own 🛠️", "Écrivez le vôtre 🛠️")} sub="init · build · test" />
+        <Node x={40} y={250} w={170} fill={C.lav} stroke={C.auth} title={t("Mirror a ClawHub skill", "Copier un skill ClawHub")} sub={t("review the source · vet ✓", "relisez la source · validez ✓")} />
+        <Node x={40} y={332} w={170} h={48} fill={C.gray} stroke={C.border} title="ClawHub 🪝" sub={t("public skill hub", "hub public de skills")} />
         <Arrow x1={125} y1={332} x2={125} y2={314} color={C.auth} />
 
         {/* registry (chokepoint) */}
-        <Node x={350} y={150} w={200} h={120} fill={C.white} stroke={C.nvidia} title="Private registry 📦" sub="Verdaccio · in-cluster" />
+        <Node x={350} y={150} w={200} h={120} fill={C.white} stroke={C.nvidia} title={t("Private registry 📦", "Registry privé 📦")} sub={t("Verdaccio · in-cluster", "Verdaccio · dans le cluster")} />
         <text x={450} y={232} fontSize={10.2} fill={C.use} textAnchor="middle" fontWeight={600}>registry.&lt;ns&gt;.svc.cluster.local:4873</text>
-        <text x={450} y={250} fontSize={9.8} fill={C.sub} textAnchor="middle">uplinks npm deps · single egress</text>
+        <text x={450} y={250} fontSize={9.8} fill={C.sub} textAnchor="middle">{t("uplinks npm deps · single egress", "uplink des deps npm · egress unique")}</text>
 
         {/* publish arrows into registry */}
         <Arrow x1={210} y1={118} x2={350} y2={178} label="npm publish" color={C.green} lx={280} ly={134} />
         <Arrow x1={210} y1={280} x2={350} y2={236} label="npm publish" color={C.green} lx={280} ly={284} />
 
         {/* install arrow to agent */}
-        <Node x={690} y={150} w={180} h={76} fill={C.greenTint} stroke={C.nvidia} title="Agent sandbox 🦞" sub="shifty — Landlock-sealed" />
+        <Node x={690} y={150} w={180} h={76} fill={C.greenTint} stroke={C.nvidia} title={t("Agent sandbox 🦞", "Sandbox de l'agent 🦞")} sub={t("shifty — Landlock-sealed", "shifty — scellée par Landlock")} />
         <Arrow x1={550} y1={196} x2={690} y2={188} label="openclaw plugins install ✓" color={C.green} lx={620} ly={176} />
-        <text x={780} y={244} fontSize={9.8} fill={C.sub} textAnchor="middle">runs the new tool, governed like any other</text>
+        <text x={780} y={244} fontSize={9.8} fill={C.sub} textAnchor="middle">{t("runs the new tool, governed like any other", "exécute l'outil, gouverné comme les autres")}</text>
 
         {/* blocked direct internet path */}
-        <Node x={690} y={300} w={180} h={48} fill={C.redTint} stroke={C.red} title="ClawHub / public npm 🌐" sub="" dash />
+        <Node x={690} y={300} w={180} h={48} fill={C.redTint} stroke={C.red} title={t("ClawHub / public npm 🌐", "ClawHub / npm public 🌐")} sub="" dash />
         <Arrow x1={780} y1={300} x2={780} y2={228} color={C.red} dash />
-        <text x={780} y={372} fontSize={10.2} fill={C.red} textAnchor="middle" fontWeight={700}>✗ DENIED once the policy is locked — no direct egress</text>
+        <text x={780} y={372} fontSize={10.2} fill={C.red} textAnchor="middle" fontWeight={700}>{t("✗ DENIED once the policy is locked — no direct egress", "✗ REFUSÉ (policy verrouillée) — pas d'egress direct")}</text>
 
-        <text x={W / 2} y={400} fontSize={11} fill={C.sub} textAnchor="middle">Skills enter only through the registry — authored, or vetted-and-mirrored. Every install crosses one endpoint and lands in the audit log.</text>
+        <text x={W / 2} y={400} fontSize={11} fill={C.sub} textAnchor="middle">{t("Skills enter only through the registry — authored, or vetted-and-mirrored. Every install crosses one endpoint and lands in the audit log.", "Les skills n'entrent que par le registry : écrits, ou vérifiés puis copiés. Chaque installation passe par un seul endpoint et finit dans l'audit log.")}</text>
       </svg>
     </figure>
   );

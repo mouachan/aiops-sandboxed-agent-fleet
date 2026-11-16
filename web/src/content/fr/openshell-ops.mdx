@@ -1,0 +1,141 @@
+Avant de lancer des commandes d'agent, comprenez la couche qui *gère* l'agent : **OpenShell**, le plan de contrôle des sandboxes. Tout ici n'est que du `oc` standard sur le cluster, sans aucun agent pour l'instant.
+
+## La gateway OpenShell
+
+OpenShell tourne sous forme de StatefulSet. Regardez-le :
+
+```bash
+oc -n "$OPENSHELL_NS" get statefulset,pods,svc
+```
+
+Son **compute driver Kubernetes** surveille les sandboxes en continu. Une gateway en bonne santé l'écrit dans ses logs toutes les quelques secondes :
+
+```bash
+oc -n "$OPENSHELL_NS" logs openshell-0 | grep -i "Listing sandboxes" | tail -3
+```
+
+`Listing sandboxes from Kubernetes` = le plan de contrôle est vivant et surveille.
+
+## L'API sandbox (un CRD)
+
+Une « sandbox » est une ressource personnalisée Kubernetes : `sandboxes.agents.x-k8s.io`. C'est ainsi que la plateforme représente l'espace isolé d'un agent :
+
+```bash
+oc get crd sandboxes.agents.x-k8s.io
+```
+
+### Lister les sandboxes
+
+Listez les sandboxes de votre namespace (la gateway les crée juste à côté d'elle) :
+
+```bash
+oc get sandboxes -n "$OPENSHELL_NS"
+```
+
+Dans ce lab, vous voyez déjà les cinq agents de la fleet de la Partie VI (`default--logs`, `default--metrics`, …) ; votre propre agent apparaîtra ici quand vous l'aurez construit dans la Partie IV, sous le nom `default--shifty` (la gateway ajoute le nom du workspace en préfixe). Ce qui compte, c'est la *forme* : chaque agent créé par la gateway apparaît ici comme un CR `Sandbox` (`agents.x-k8s.io/v1beta1`) que vous pouvez inspecter avec un simple `oc` (`oc -n "$OPENSHELL_NS" describe sandbox default--<name>`). C'est toute la surface de l'API : un objet Kubernetes.
+
+## Policies : ce qu'une sandbox de la gateway a le droit de faire
+
+Une policy de sandbox gérée par OpenShell est **un seul fichier YAML en deux moitiés** : une section réseau *dynamique*, rechargée à chaud sur une sandbox en marche, et des sections système de fichiers + processus *statiques*, figées à la création et appliquées dans le noyau. Parcourez chaque partie :
+
+<PolicyExplorer />
+
+Pour les sandboxes créées via la gateway OpenShell, chaque section correspond à un vrai point d'application. Rien ici n'est indicatif :
+
+| Couche | Protège contre | Appliqué par | Modifiable à chaud ? |
+| --- | --- | --- | --- |
+| `network_policies` | egress / exfiltration de données | proxy CONNECT + OPA, par binaire | ✅ rechargement à chaud |
+| `filesystem` | altération des binaires, vol d'identifiants | **Landlock LSM** (noyau) | ❌ recréer |
+| `process` | élévation de privilèges, fork bombs, syscalls interdits | **seccomp-BPF** + abandon des privilèges | ❌ recréer |
+
+### Voyez-la sur votre cluster
+
+Le dépôt fournit la policy OpenShell que votre agent va utiliser. Affichez le vrai fichier :
+
+```bash
+cat ~/workshop/policies/openclaw-sandbox.yaml
+```
+
+Elle est courte. La voici en entier, et chaque ligne est un garde-fou :
+
+```yaml
+version: 1
+
+filesystem_policy:                       # what the agent may touch on disk
+  include_workdir: true
+  read_only:  [/usr, /lib, /proc, /dev/urandom, /app, /etc, /var/log]
+  read_write: [/sandbox, /tmp, /var/tmp, /dev/null]
+
+landlock:
+  compatibility: best_effort             # enforce the FS rules via the kernel (Landlock LSM)
+
+process:
+  run_as_user: sandbox                   # the agent runs unprivileged, never root
+  run_as_group: sandbox
+
+network_policies:                        # a MAP of named egress rules — deny-by-default
+  in-cluster-registry:                   # the workshop's private npm registry (skills)
+    name: in-cluster-registry
+    endpoints:
+      - { host: registry.openshell.svc.cluster.local, port: 4873, access: full, protocol: rest, allow_encoded_slash: true }
+    binaries:
+      - { path: /usr/bin/node }          # ONLY node/npm may use this rule
+      - { path: /usr/local/bin/node }
+      - { path: /usr/bin/npm }
+      - { path: /usr/local/bin/npm }
+  npm-registry:                          # public npm, for plugin dependencies
+    name: npm-registry
+    endpoints:
+      - { host: registry.npmjs.org, port: 443, access: full, protocol: rest, allow_encoded_slash: true }
+    binaries: [ { path: /usr/bin/node }, { path: /usr/local/bin/node }, { path: /usr/bin/npm }, { path: /usr/local/bin/npm } ]
+  websearch:                             # DuckDuckGo, for the web-search tool
+    name: websearch
+    endpoints:
+      - { host: duckduckgo.com, port: 443, access: full }
+      - { host: html.duckduckgo.com, port: 443, access: full }
+      - { host: lite.duckduckgo.com, port: 443, access: full }
+    binaries: [ { path: /usr/bin/node }, { path: /usr/local/bin/node } ]
+```
+
+Lisez-la maintenant bloc par bloc :
+
+- **`version`** — la version du schéma de policy. Simplement `1`.
+- **`filesystem_policy`** — la vue qu'a l'agent du disque. `read_only` couvre les répertoires système (il ne peut donc pas altérer les binaires ni les configs) ; `read_write` se limite **uniquement** à son home (`/sandbox`), `/tmp`, `/var/tmp` et `/dev/null`. Tout ce qui n'est pas listé (`/workspace`, le système de fichiers de l'hôte) n'existe tout simplement pas pour l'agent.
+- **`landlock`** — ces règles de système de fichiers ne sont pas indicatives. Elles sont appliquées par **Landlock**, un module de sécurité du noyau Linux : même un agent compromis ne peut pas en sortir.
+- **`process`** — l'agent tourne avec l'utilisateur non privilégié `sandbox`, jamais root (renforcé par seccomp-BPF + abandon des privilèges).
+- **`network_policies`** — le cœur du dispositif : une **map** de règles nommées, deny-by-default. Chaque règle associe des **endpoints** (l'hôte + le port que l'agent peut atteindre) à des **binaires** (les exécutables autorisés à utiliser cet egress). Ici, il y en a trois (le registry de skills interne au cluster, npm public et DuckDuckGo), toutes réservées à `node`/`npm`, et rien d'autre. (Dans un lab partagé, l'hôte du registry porte votre propre namespace, <code>registry.<Ns which="openshell" />.svc.cluster.local</code> ; le workshop le réécrit au démarrage.)
+
+Lisez-la comme une seule phrase : *« `node` peut ouvrir `:443` vers `duckduckgo.com`, `curl` non, et personne ne peut aller ailleurs. »* C'est cet egress **par binaire et par hôte** qui empêche un agent victime d'une injection de prompt d'exfiltrer des données par un canal inattendu : un pare-feu qui bloque tout, avec de minuscules portes étiquetées.
+
+<Callout type="note" title="Où est l'endpoint du modèle ?">
+Remarquez que la policy n'a <strong>aucune règle pour l'inférence</strong>. Cet accès vient d'un <em>provider</em> attaché à la sandbox (dernière section ci-dessous) : son provider profile ajoute l'endpoint d'inférence à la policy <em>effective</em> de la sandbox (pour les binaires listés uniquement) et sert d'intermédiaire pour la clé. Sans provider attaché, un appel vers l'hôte d'inférence est refusé comme n'importe quoi d'autre.
+</Callout>
+
+Vous verrez cette policy exacte **appliquée en direct** dans la leçon suivante (sur une sandbox jetable), puis à nouveau quand vous construirez votre agent dans la Partie IV : `openshell policy get <name>` affiche la policy *effective* (ajoutez `--full` pour inclure les règles composées par les providers). La gateway compile ce fichier en règles au niveau du noyau (Landlock/seccomp) et au niveau du proxy (egress OPA).
+
+<Callout type="tip" title="La boucle d'itération">
+Pour une sandbox créée par la gateway, commencez en mode <strong>audit</strong> (violations journalisées, pas bloquées), surveillez les refus avec <code>openshell logs &lt;name&gt;</code>, ajoutez dans <code>network_policies</code> les endpoints dont vous avez vraiment besoin, puis passez en mode <strong>enforce</strong>. Vous resserrez sans interruption : les règles réseau se rechargent à chaud.
+</Callout>
+
+<Callout type="note" title="Qui réconcilie la sandbox ?">
+Le <strong>contrôleur</strong> agent-sandbox (kubernetes-sigs/agent-sandbox v1.0.3, installé une fois par cluster) transforme le CR <code>Sandbox</code> en vrai pod, sous le RBAC et les Security Context Constraints du namespace : les sandboxes tournent sous la SCC par défaut <code>restricted-v2</code>, sans aucun droit privilégié. OpenShell est le plan de contrôle plus large : la gateway, plus un <strong>supervisor</strong> par sandbox (vous verrez un pod <code>os-supervisor-…</code> à côté de chacune).
+</Callout>
+
+## Identifiants : providers et placeholders
+
+La gateway est aussi l'endroit où vivent les secrets, sous la forme de deux objets du plan de contrôle que vous utiliserez dans la Partie IV :
+
+- Un **provider profile** : le contrat d'accès pour un type d'identifiant. Il indique vers quel **hôte + port** l'identifiant peut être envoyé, comment (par ex. `Authorization: Bearer`), la variable d'environnement qui le porte dans la sandbox (`OPENAI_API_KEY`) et quels **binaires** peuvent l'envoyer. Aucun secret dedans.
+- Un **provider** : une instance d'un profile qui détient le vrai **identifiant** (votre clé), stocké côté gateway. Vous l'**attachez** aux sandboxes.
+
+```bash-ref
+openshell provider profile import -f "$NEMOCLAW_INFERENCE_PROFILE"      # the access contract
+OPENAI_API_KEY=… openshell provider create --name default \
+  --type maas-openai --credential OPENAI_API_KEY                          # key held by the gateway
+openshell sandbox create … --provider default                            # attach at creation
+openshell provider list                                                  # never prints key values
+```
+
+Ces commandes sont données pour référence : vous les exécuterez réellement dans la **Partie IV**, pas ici. Dans une sandbox attachée, `$OPENAI_API_KEY` ne contient qu'un **placeholder** (`openshell:resolve:env:…`). L'agent appelle votre vrai endpoint avec ce placeholder ; le proxy d'egress du supervisor le repère et le remplace par la vraie clé, uniquement vers l'hôte du profile et uniquement depuis ses binaires. Deux conséquences, toutes deux positives : l'agent **ne détient jamais votre clé**, et un placeholder volé ne vaut rien ailleurs.
+
+Ensuite : lancez une sandbox jetable et pilotez en pratique chaque élément vu ici : status, logs, policy, providers, forward.

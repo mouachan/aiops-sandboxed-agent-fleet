@@ -33,6 +33,7 @@ a sandbox created WITHOUT `--policy` never becomes Ready (supervisor loops on "S
 | `OPENSHELL_NAMESPACE` | `openshell` / `user07-openshell` | namespace of the gateway, sandboxes, registry, workshop (= Release.Namespace) |
 | `DEMO_NAMESPACE` | `demo` / `user07-demo` | namespace of the demo app (incident lab) |
 | `LAB_USER` | `` / `user07` | attendee id (empty in single-instance mode); shown in the UI |
+| `WORKSHOP_DEFAULT_LANG` | `en` / `fr` | default language of the lessons and UI (chart `workshop.defaultLang`); the attendee's FR/EN choice is kept in the `oclaw-lang` cookie |
 | `OPENSHELL_GATEWAY_ENDPOINT_URL` | `http://openshell.<ns>.svc.cluster.local:8080` | plaintext in-cluster gateway URL |
 | `OPENSHELL_GATEWAY_ENDPOINT` | `http://openshell.<ns>.svc.cluster.local:8080` | full URL: the openshell 0.1.6 CLI reads this variable itself (`--gateway-endpoint`) and requires a scheme; server.mjs derives the gRPC host:port from it |
 | `REGISTRY_HOST` | `registry.<ns>.svc.cluster.local` | Verdaccio host (port 4873) |

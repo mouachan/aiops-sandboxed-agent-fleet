@@ -1,0 +1,34 @@
+Où aller plus loin, et les liens essentiels.
+
+## La barre d'outils (en haut à droite de chaque page)
+
+Trois outils live se trouvent dans l'en-tête :
+
+- **Live** → [Live OpenShell](/learn/live). Lit votre gateway directement depuis le cluster : santé et version de la gateway, la **fleet de sandboxes**, les **providers** enregistrés (identifiants d'inférence : noms de clés uniquement, jamais les valeurs), et, en cliquant sur une sandbox, ses **Logs / audit**, ses **Décisions de policy** (chaque tentative d'egress que la policy a *autorisée* ou *refusée*, avec un code couleur, l'hôte, le binaire, la règle, le moteur et le motif du refus) et sa **Policy** effective (YAML complet). Rafraîchissement automatique ; servi en lecture seule via `/api/openshell`.
+- **Approvals** → [/approvals](/approvals). Deux boîtes de réception human-in-the-loop, avec un badge live du nombre de demandes en attente :
+  - **Demandes d'accès** — quand l'agent se voit refuser l'accès à une API ou à un site web, la gateway propose une règle d'autorisation ; **Approuver** la fusionne dans la policy d'egress *live* de l'agent, **Refuser** la rejette (les RPC draft-policy de la gateway).
+  - **Approbations d'appareils** — les navigateurs et CLI qui demandent à s'appairer avec la Control UI de l'agent ; approuvez ou refusez chacun.
+- **Liens** — ouvre les services de votre cluster dans un nouvel onglet :
+  - **OpenClaw UI** — la Control UI de votre agent (chat + appairage d'appareils), via sa Route OpenShift.
+  - **Grafana** — les dashboards d'observabilité (same-origin `/grafana`).
+  - **Console OpenShift** — la console web du cluster, à l'URL de sa Route (masquée dans un lab partagé sans comptes console).
+
+## La stack
+- **Red Hat OpenShift** — docs.openshift.com
+- **OpenShell** — le runtime de sandbox des agents et son plan de contrôle
+- **OpenClaw** — l'agent et sa Control UI ; `openclaw --help`, docs.openclaw.ai
+
+## Concepts à approfondir
+- RBAC OpenShift, Security Context Constraints, NetworkPolicy.
+- Le CRD agent-sandbox (`sandboxes.agents.x-k8s.io`).
+- Skills, outils et appairage d'appareils OpenClaw, et le pattern workspace-comme-mémoire (IDENTITY/SOUL).
+- Model Context Protocol (MCP) pour des outils d'agent typés.
+- Modélisation des menaces pour les agents autonomes : prompt injection, exposition des identifiants, contrôle de l'egress, approbation humaine, audit logs.
+- Durcissement pour la production : mTLS/OIDC sur la gateway, RBAC par équipe, gestion externe des secrets, GitOps, export vers le SIEM, OpenShift supporté.
+
+## Le dépôt du workshop
+Tout ce que vous avez déployé est scripté dans le dépôt du workshop : `chart/` (le Helm chart parapluie : gateway OpenShell, ce workshop, Grafana), `scripts/` (`deploy.sh` pour une instance, `lab.sh` pour un lab multi-utilisateurs, `fleet.sh` pour la fleet d'agents), `manifests/` (les seeds OpenClaw, les rôles de la fleet, l'app de démo), `policies/`, et ce site dans `web/`. Dans votre shell de lab, il se trouve dans `~/workshop`. Lisez-le, forkez-le, construisez votre projet de hackathon par-dessus.
+
+<Callout type="rh" title="Merci d'avoir participé">
+Construit par <strong>Red Hat</strong> et <strong>Nvidia</strong>. À vous de donner un super-pouvoir à votre homard. 🦞
+</Callout>

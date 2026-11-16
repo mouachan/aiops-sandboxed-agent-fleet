@@ -1,0 +1,102 @@
+**OpenShell** est ce qui rend concret « faire tourner un agent autonome *en toute sécurité* ». Le pitch en une ligne : **pour être utiles, les agents ont besoin d'accès ; pour être sûrs, ils ont besoin de Zero Trust**, et OpenShell est le runtime qui vous donne les deux. Ce n'est pas un processus unique : c'est une gateway et un ensemble de garde-fous, posés sur une primitive Kubernetes open source.
+
+## Dans le runtime
+
+Deux chemins traversent OpenShell : le **chemin de l'agent** (*agent path* : comment un agent prend vie et travaille) et le **chemin des garde-fous** (*guardrail path* : ce qui le borne). Basculez entre *ce qu'est chaque brique* et *ce qu'elle devient sur OpenShift*, et cliquez sur n'importe quel composant :
+
+<OpenShellRuntime />
+
+### Le chemin de l'agent
+- **Gateway** : le plan de contrôle (gRPC :8080). Elle alloue les sandboxes, attribue à chacune une identité limitée, et héberge le moteur de policy + le magasin de secrets (les providers). Sur OpenShift, c'est un StatefulSet dont le *compute driver* surveille le CRD Sandbox.
+- **Sandbox Supervisor** : livré par la gateway à **chaque** sandbox (sur OpenShift, vous verrez un pod `os-supervisor-…` par sandbox). Il échange un token de bootstrap contre un JWT de sandbox, charge la policy et l'état des providers, relaie exec, les logs et la synchronisation de fichiers, vérifie chaque connexion ouverte par l'agent par rapport à la policy (destination, binaire, puis requête HTTP), et remplace les placeholders par les vrais secrets en egress.
+- **Agent Harness** : l'agent lui-même (Definition · Memory · Skills), encapsulé par le supervisor dans chaque sandbox créée par la gateway. Votre agent `shifty` est exactement cela : l'image OpenClaw + un workspace `.md`, qui tourne comme une `Sandbox` `agents.x-k8s.io` gérée par la gateway.
+- **Sub-Agents** : des agents spécialisés que le harness peut lancer, chacun dans sa propre sandbox, avec sa propre identité et sa propre policy.
+- **Accelerated Tooling** : ce que l'agent atteint *à travers les garde-fous* : système de fichiers, recherche, Omniverse/CAD, modèles, via API, CLI ou MCP.
+
+### Le chemin des garde-fous
+- **Policy Engine + Validator** : deny-by-default. Pour chaque binaire, quels hôtes, méthodes et chemins sont autorisés ; un validateur de brouillons (drafts) peut proposer des ajouts qu'un humain approuve.
+- **Network Guardrail** : egress par binaire, au niveau du noyau (`git → github.com ✓`, `curl → anywhere ✗`). Bloque l'exfiltration par des canaux inconnus ; effet immédiat, sans redémarrage lors d'un changement.
+- **Credential brokering (providers)** : les secrets vivent dans la gateway sous forme de *providers*, typés par des *provider profiles* (hôte, port et binaires autorisés). Une sandbox attachée ne voit qu'un **placeholder** (`openshell:resolve:env:…`) ; le supervisor injecte la vraie clé en egress, uniquement vers l'endpoint du profile. **Cet atelier utilise exactement ce mécanisme :** vous enregistrez votre endpoint + votre clé comme *provider* de la gateway (Partie IV) et vous l'attachez à votre agent. L'agent appelle ainsi votre vrai endpoint sans jamais détenir votre clé.
+- **Model** : là où tourne l'inférence, un endpoint compatible OpenAI. Dans ce lab, c'est le modèle `nemotron` servi par OpenShift AI Models-as-a-Service (toute API distante compatible OpenAI fonctionne aussi).
+
+<Callout type="note" title="Pourquoi un runtime (et pas juste un prompt)">
+La sécurité dans un system prompt n'est qu'une suggestion ; la sécurité au niveau <em>du réseau et des processus</em> est imposée. Même si l'agent subit une injection de prompt, les garde-fous ne laissent ses binaires atteindre que les hôtes et les chemins que vous avez autorisés.
+</Callout>
+
+## Sur OpenShift : le vrai déploiement
+
+Le Helm chart déploie la gateway comme un **StatefulSet** ; le **contrôleur agent-sandbox** transforme les CR `Sandbox` en pods ; le **supervisor** de chaque sandbox se reconnecte à la gateway avec son identité de sandbox. Cliquez sur n'importe quel objet : le détail montre comment *cet* atelier s'y rattache :
+
+<OpenShellOnK8s />
+
+### Cinq couches de contrôle
+
+Chaque sandbox est bornée par cinq couches indépendantes : certaines sont figées à la création, d'autres rechargeables à chaud :
+
+| Couche | Protège contre | Point d'application | Modifiable à l'exécution ? |
+| --- | --- | --- | --- |
+| **Réseau** | egress / exfiltration de données | proxy CONNECT + policy OPA (par binaire) | ✅ `openshell policy set` |
+| **Système de fichiers** | altération des binaires, vol de secrets | Landlock LSM (noyau) | ❌ recréer la sandbox |
+| **Processus** | élévation de privilèges, fork bombs, syscalls dangereux | seccomp-BPF + abandon des privilèges | ❌ recréer la sandbox |
+| **Secrets** | exposition / exfiltration de clés | provider profile + remplacement du placeholder en egress | ✅ `openshell sandbox provider attach` |
+| **Gateway** | accès non authentifié, altération du transport | mTLS / OIDC (ici : interne au cluster uniquement, pas de Route publique) | config |
+
+C'est la défense en profondeur des sandboxes gouvernées par OpenShell : même un agent entièrement compromis par injection de prompt reste enfermé par le noyau et le proxy, pas par un prompt. Par-dessus, OpenShift apporte sa propre moitié de l'histoire (SCC, paramètres de sécurité des pods et NetworkPolicy) : les garde-fous natifs du cluster, dont hérite chaque sandbox.
+
+<Callout type="note" title="Ce que ce déploiement simplifie">
+Des sandboxes CPU uniquement, l'inférence via un endpoint compatible OpenAI (dans ce lab, le modèle `nemotron` servi par OpenShift AI Models-as-a-Service), et une gateway en clair, non authentifiée, joignable <strong>uniquement depuis l'intérieur du cluster</strong> (pas de Route publique) au lieu de mTLS/OIDC. La <em>forme</em> est identique à un déploiement de production complet, avec moins de modules optionnels.
+</Callout>
+
+## La fondation : agent-sandbox (le projet du SIG)
+
+La couche du bas, c'est du Kubernetes communautaire : le CRD `Sandbox` (`agents.x-k8s.io`) et son contrôleur viennent de **[kubernetes-sigs/agent-sandbox](https://github.com/kubernetes-sigs/agent-sandbox)**. OpenShell ajoute *par-dessus* la gateway, le supervisor, le courtage des secrets et la policy. C'est pourquoi `oc get sandboxes -n "$OPENSHELL_NS"` fonctionne avec un simple `oc` : ce sont des objets Kubernetes standard.
+
+<Callout type="note" title="Un détail de version qui compte">
+La gateway (OpenShell <strong>0.1.6</strong>) parle l'API Sandbox <code>agents.x-k8s.io/v1beta1</code> : nous installons donc agent-sandbox <strong>v1.0.3</strong>, la version avec laquelle OpenShell 0.1.6 est testé. La gateway et le contrôleur doivent s'accorder sur la version de l'API : un ancien contrôleur qui ne connaît que <code>v1alpha1</code> laisserait les sandboxes créées par la gateway bloquées avant <code>Ready</code>. Le CRD et son contrôleur sont globaux au cluster et installés une seule fois ; chaque gateway (une par participant dans un lab partagé) les utilise.
+</Callout>
+
+## Comment joindre la gateway
+
+Dans le cluster, la gateway est un Service, `svc/openshell:8080`. Votre shell de lab tourne **dans le cluster** (c'est le pod workshop) : la CLI `openshell` est donc pré-enregistrée sur cet endpoint interne au cluster, `http://openshell.<namespace>.svc.cluster.local:8080` :
+
+```bash
+openshell status
+```
+
+<Callout type="note" title="Pourquoi pas de Route publique ?">
+Cette gateway accepte des clients non authentifiés : elle n'est donc volontairement <strong>pas</strong> publiée sur une Route OpenShift. Seules les charges de travail du cluster (votre shell de lab, l'API du workshop) peuvent la joindre, et dans un lab partagé, une NetworkPolicy empêche les autres participants d'entrer dans votre namespace. Une gateway de production utiliserait mTLS ou OIDC et pourrait alors être exposée sans risque.
+</Callout>
+
+## Pilotez la gateway avec la CLI
+
+`openshell status` n'est qu'un début. Vous ferez tout avec la CLI. Voyez ses commandes :
+
+```bash
+openshell --help
+```
+
+Voyez quelles gateways la CLI connaît : vous êtes pointé sur celle que nous avons enregistrée, `cluster` :
+
+```bash
+openshell gateway list
+```
+
+Et listez les agents qui y tournent :
+
+```bash
+openshell sandbox list
+```
+
+Aucun n'est encore à vous : vous créerez votre premier agent, `shifty`, en **Partie IV**. Dans ce lab, vous voyez déjà cinq agents, `logs`, `metrics`, `traces`, `events` et `analyst` : la fleet SRE du capstone de la **Partie VI**, créée à l'avance pour ne pas avoir à démarrer pendant la session. N'y touchez pas d'ici là. Une fois une sandbox créée, vous y accédez **via la gateway** avec `openshell sandbox exec`, audité et soumis à la policy, et non avec un `kubectl exec` brut. C'est ainsi que vous lancerez des commandes dans votre agent (y compris sa propre CLI `openclaw`) en Partie IV.
+
+La Partie III (la suivante) approfondit le plan de contrôle et le modèle de policy, avec une sandbox jetable pour expérimenter, afin que vous compreniez chaque brique avant de construire pour de vrai.
+
+Comme la gateway n'est que du gRPC, *tout* client qui le parle peut piloter la fleet : la CLI `openshell` que vous venez d'utiliser, la console web compagnon `openshell-ui`, ou des panneaux live branchés directement sur l'API de la gateway dans ce site d'atelier.
+
+<Callout type="note" title="Deux choses appelées « gateway »">
+Vous entendrez « gateway » deux fois : la <strong>gateway OpenShell</strong> (plan de contrôle, :8080, joignable dans le cluster) et la <strong>gateway OpenClaw</strong> (la propre UI de contrôle de l'agent, :30789, dans la sandbox). Ce sont deux choses différentes : ne les confondez pas.
+</Callout>
+
+<Callout type="rh" title="Ce que cet atelier met en pratique">
+Vous allez piloter la <strong>gateway</strong> pour de vrai : <code>openshell sandbox create</code> crée une identité et écrit une CR <code>Sandbox</code>, le contrôleur réconcilie un Pod, puis le <strong>supervisor</strong> démarre et se reconnecte, jusqu'à <code>Ready</code>. Votre agent atteint son modèle via un <strong>provider</strong> attaché : il ne détient qu'une clé placeholder, et le supervisor injecte la vraie en egress. Les leçons suivantes parcourent ces chemins de bout en bout.
+</Callout>

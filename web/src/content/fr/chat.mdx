@@ -1,0 +1,55 @@
+Votre navigateur est appairé et votre agent a un modèle. Place à la conversation, en regardant la plateforme que vous avez construite faire son travail en coulisses.
+
+## Dites bonjour
+
+Dans la Control UI d'OpenClaw (l'onglet ouvert dans *Ouvrez l'UI de l'agent*), utilisez la zone de chat :
+
+> Bonjour ! Qui êtes-vous, et sur quel cluster tournez-vous ?
+
+Il répond à partir de son **identité** (les fichiers `.md` du workspace, que vous modifierez dans *Identité et soul*) avec le modèle que vous avez configuré. Chaque réponse est un aller-retour vers votre endpoint d'inférence : la requête sort par le proxy d'egress de la sandbox, où le supervisor remplace le placeholder `OPENAI_API_KEY` par votre vraie clé, en route vers le seul hôte autorisé par le provider.
+
+## Observez-le depuis le shell
+
+Pendant que vous discutez, suivez le log de la gateway de l'agent : vous verrez les tours, les tool calls et les requêtes au modèle en temps réel :
+
+```bash
+openshell sandbox exec -n shifty -- sh -c 'tail -n 20 /sandbox/gateway.log'
+```
+
+Et vérifiez ce que l'agent a le droit de joindre, avec la policy deny-by-default en vigueur :
+
+```bash
+openshell policy get shifty --full
+```
+
+Tout ce qu'il peut toucher sur le réseau est là. Demandez-lui de récupérer un site web au hasard : il ne peut tout simplement pas, cet egress n'est pas dans la policy. C'est la garantie : l'agent fait ce que vous voulez, et *uniquement* ce que vous avez autorisé.
+
+## Essayez une vraie tâche
+
+Donnez-lui quelque chose de concret à faire (il dispose d'un shell et d'outils dans sa sandbox) :
+
+> Utilisez votre outil write pour créer le fichier /sandbox/haiku.txt contenant un haïku sur Kubernetes. Puis utilisez votre outil read pour me relire /sandbox/haiku.txt.
+
+Vous préférez le terminal ? Envoyez la même tâche via la gateway de l'agent :
+
+```bash
+openshell sandbox exec -n shifty -- sh -c 'cd /sandbox && openclaw agent --agent main --session-id haiku -m "Use your write tool to create the file /sandbox/haiku.txt containing a haiku about Kubernetes. Then use your read tool to read /sandbox/haiku.txt back to me."'
+```
+
+Vérifiez ensuite depuis l'extérieur qu'il a bien écrit le fichier dans son espace scellé :
+
+```bash
+openshell sandbox exec -n shifty -- cat /sandbox/haiku.txt
+```
+
+Si `cat` répond *No such file*, le modèle a répondu dans le chat sans appeler son outil write ; les petits modèles le font parfois. Renvoyez la tâche : c'est le fait de nommer l'outil (« utilisez votre outil write ») qui rend la chose fiable.
+
+L'agent a agi dans sa sandbox ; vous l'avez observé depuis le plan de contrôle. Cette séparation (l'agent dans une boîte scellée, vous qui tenez les clés) est tout l'enjeu.
+
+<Callout type="tip" title="Si une réponse se bloque">
+Vérifiez la config du modèle et que l'egress est autorisé : <code>openshell sandbox exec -n shifty -- openclaw config get models.providers.custom</code> et <code>openshell logs shifty --tail</code>. Une requête bloquée apparaît comme un egress refusé dans l'audit log : c'est la policy qui fait son travail, pas un bug.
+</Callout>
+
+<Callout type="rh" title="Vous avez un agent fonctionnel">
+Créé via la gateway, scellé, gouverné par une policy, adossé à un modèle et qui discute dans votre navigateur : entièrement de votre main, sur un vrai OpenShift. Maintenant, faites-en <em>le vôtre</em> : identité, soul, et le plan de contrôle qui le fait tourner.
+</Callout>

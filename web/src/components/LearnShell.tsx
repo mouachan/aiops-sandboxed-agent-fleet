@@ -3,12 +3,14 @@ import { type ReactNode } from "react";
 import { BookOpen, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { useStoredString } from "@/lib/clientStore";
+import { useT } from "@/lib/lang-client";
 
 // Full-width learn shell with a collapsible lesson sidebar (open/closed is remembered).
 export function LearnShell({ children }: { children: ReactNode }) {
   const [saved, setSaved] = useStoredString("oclaw:lesson-sidebar-open", "true");
   const open = saved !== "false";
   const setOpen = (v: boolean) => setSaved(String(v));
+  const t = useT();
 
   return (
     <div className="relative flex w-full">
@@ -18,12 +20,12 @@ export function LearnShell({ children }: { children: ReactNode }) {
             <div className="mb-4 flex items-center gap-2">
               <div className="flex min-w-0 flex-1 items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-fg-mut)]">
                 <BookOpen size={14} className="text-[var(--color-nv-bright)]" />
-                <span>Lessons</span>
+                <span>{t("Lessons", "Leçons")}</span>
               </div>
               <button
                 onClick={() => setOpen(false)}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--color-line-2)] text-[var(--color-fg-mut)] transition hover:bg-[var(--color-panel)] hover:text-[var(--color-fg)]"
-                title="Hide lessons"
+                title={t("Hide lessons", "Masquer les leçons")}
               >
                 <PanelLeftClose size={15} />
               </button>
@@ -38,7 +40,7 @@ export function LearnShell({ children }: { children: ReactNode }) {
             <button
               onClick={() => setOpen(true)}
               className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--color-line-2)] text-[var(--color-fg-mut)] transition hover:bg-[var(--color-panel)] hover:text-[var(--color-fg)]"
-              title="Show lessons"
+              title={t("Show lessons", "Afficher les leçons")}
             >
               <PanelLeftOpen size={15} />
             </button>
@@ -51,9 +53,9 @@ export function LearnShell({ children }: { children: ReactNode }) {
           <button
             onClick={() => setOpen(true)}
             className="mb-4 inline-flex items-center gap-1.5 rounded-md border border-[var(--color-line-2)] px-2.5 py-1 text-xs text-[var(--color-fg-mut)] hover:text-[var(--color-fg)] lg:hidden"
-            title="Show lessons"
+            title={t("Show lessons", "Afficher les leçons")}
           >
-            <PanelLeftOpen size={14} /> Lessons
+            <PanelLeftOpen size={14} /> {t("Lessons", "Leçons")}
           </button>
         )}
         {children}

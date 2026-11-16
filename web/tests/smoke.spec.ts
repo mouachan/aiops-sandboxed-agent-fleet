@@ -154,3 +154,14 @@ test.describe("lab access gate", () => {
     expect(await tryWs({ Authorization: `Bearer ${SMOKE_TOKEN}`, Origin: "http://localhost:3000" })).toBe(101);
   });
 });
+
+test("every lesson renders in French when the language cookie says so", async ({ page, context }) => {
+  await context.addCookies([{ name: "oclaw-lang", value: "fr", url: page.url().startsWith("http") ? page.url() : "http://localhost:3000" }]);
+  for (const part of CURRICULUM) {
+    for (const l of part.lessons) {
+      const res = await page.goto(`/learn/${l.slug}`);
+      expect(res?.status(), l.slug).toBe(200);
+      await expect(page.locator("h1").first()).toHaveText(l.fr?.title ?? l.title);
+    }
+  }
+});

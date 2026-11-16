@@ -2,10 +2,12 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ShieldCheck } from "lucide-react";
+import { useT } from "@/lib/lang-client";
 
 // Header tab for device approvals, with a live count badge so a pending request is
 // noticeable from anywhere in the workshop. Polls the read-only /api/openshell.
 export function ApprovalsNav() {
+  const t = useT();
   const [n, setN] = useState(0);
   useEffect(() => {
     let alive = true;
@@ -27,7 +29,7 @@ export function ApprovalsNav() {
   }, []);
 
   return (
-    <Link href="/approvals" title="Device approvals — approve or deny pairing requests"
+    <Link href="/approvals" title={t("Device approvals — approve or deny pairing requests", "Approbations d'appareils — approuvez ou refusez les demandes d'appairage")}
       className="relative inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition hover:text-[var(--color-nv-bright)]"
       style={{ borderColor: n > 0 ? "#e0a800" : "var(--color-line-2)" }}>
       <ShieldCheck size={13} /> <span className="hidden sm:inline">Approvals</span>

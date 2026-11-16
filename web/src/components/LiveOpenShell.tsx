@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { RefreshCw, Server, Box, ScrollText, Shield, Cpu, KeyRound, ShieldCheck } from "lucide-react";
+import { useT, useLang } from "@/lib/lang-client";
 
 type Sandbox = { name: string; object?: string; phase: string; ready: boolean; restarts: number; created: string | null };
 type Provider = { name: string; type: string; credentialKeys: string[]; configKeys: string[] };
@@ -49,6 +50,8 @@ function parseDecisions(text: string): Decision[] {
 }
 
 export function LiveOpenShell() {
+  const t = useT();
+  const fr = useLang() === "fr";
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(false);
   const [sel, setSel] = useState<string | null>(null);
@@ -114,23 +117,23 @@ export function LiveOpenShell() {
   return (
     <figure className="my-6 rounded-xl border border-[var(--color-line)] bg-[var(--color-panel)] p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <figcaption className="text-sm text-[var(--color-fg-mut)]">Live from your gateway — auto-refreshes</figcaption>
+        <figcaption className="text-sm text-[var(--color-fg-mut)]">{t("Live from your gateway — auto-refreshes", "En direct depuis votre gateway, rafraîchi automatiquement")}</figcaption>
         <button onClick={load} className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-line-2)] px-2.5 py-1 text-[11px] text-[var(--color-fg-mut)] transition hover:text-[var(--color-fg)]">
-          <RefreshCw size={12} className={loading ? "animate-spin" : ""} /> Refresh
+          <RefreshCw size={12} className={loading ? "animate-spin" : ""} /> {t("Refresh", "Rafraîchir")}
         </button>
       </div>
 
       {/* gateway status */}
       <div className="mb-3 flex items-center gap-2 rounded-lg border border-[var(--color-line)] bg-[var(--color-bg-2)] px-3 py-2.5">
         <Server size={15} className="text-[var(--color-fg-mut)]" />
-        <span className="text-[13px] font-semibold text-[var(--color-fg)]">OpenShell gateway</span>
+        <span className="text-[13px] font-semibold text-[var(--color-fg)]">{t("OpenShell gateway", "Gateway OpenShell")}</span>
         {data && data.ok ? (
           <span className="inline-flex items-center gap-1.5 text-[12px]" style={{ color: gw?.ready ? "var(--color-nv-bright)" : "#ee5555" }}>
             <span style={{ width: 7, height: 7, borderRadius: 7, background: gw?.ready ? "#76b900" : "#ee5555", display: "inline-block" }} />
-            {gw?.ready ? "Connected" : "Not ready"}{gw?.version ? ` · ${gw.version}` : ""}
+            {gw?.ready ? t("Connected", "Connectée") : t("Not ready", "Pas prête")}{gw?.version ? ` · ${gw.version}` : ""}
           </span>
         ) : (
-          <span className="text-[12px] text-[var(--color-fg-mut)]">{data ? "unreachable" : "loading…"}</span>
+          <span className="text-[12px] text-[var(--color-fg-mut)]">{data ? t("unreachable", "injoignable") : t("loading…", "chargement…")}</span>
         )}
         <span className="ml-auto font-mono text-[10px] text-[var(--color-fg-mut)]">ns: {data?.namespace ?? "…"}</span>
       </div>
@@ -140,7 +143,7 @@ export function LiveOpenShell() {
         <div className="mb-3 rounded-lg border border-[var(--color-line)] bg-[var(--color-bg-2)] px-3 py-2.5">
           <div className="flex flex-wrap items-center gap-2">
             <Cpu size={15} className="text-[var(--color-fg-mut)]" />
-            <span className="text-[13px] font-semibold text-[var(--color-fg)]">Inference provider</span>
+            <span className="text-[13px] font-semibold text-[var(--color-fg)]">{t("Inference provider", "Provider d'inférence")}</span>
             {data.inference.configured ? (
               <span className="inline-flex items-center gap-1.5 text-[12px] text-[var(--color-nv-bright)]">
                 <span style={{ width: 7, height: 7, borderRadius: 7, background: "#76b900", display: "inline-block" }} />
@@ -148,16 +151,16 @@ export function LiveOpenShell() {
                 {data.inference.model ? <> · <span className="font-mono">{data.inference.model}</span></> : null}
               </span>
             ) : (
-              <span className="text-[12px] text-[var(--color-fg-mut)]">not configured — create it in <em>Set Your Inference Endpoint</em></span>
+              <span className="text-[12px] text-[var(--color-fg-mut)]">{fr ? <>non configuré : créez-le dans <em>Configurez votre endpoint d&apos;inférence</em></> : <>not configured — create it in <em>Set Your Inference Endpoint</em></>}</span>
             )}
             <span className="ml-auto font-mono text-[10px] text-[var(--color-fg-mut)]">
-              {data.inference.agent}: {data.inference.attached.length ? `attached ${data.inference.attached.join(", ")}` : "no provider attached"}
+              {data.inference.agent}: {data.inference.attached.length ? t(`attached ${data.inference.attached.join(", ")}`, `attaché : ${data.inference.attached.join(", ")}`) : t("no provider attached", "aucun provider attaché")}
             </span>
           </div>
           {data.inference.providers.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {data.inference.providers.map((p) => (
-                <span key={p.name} title={`credentials: ${p.credentialKeys.join(", ") || "—"}`}
+                <span key={p.name} title={t(`credentials: ${p.credentialKeys.join(", ") || "—"}`, `identifiants : ${p.credentialKeys.join(", ") || "—"}`)}
                   className="inline-flex items-center gap-1 rounded border border-[var(--color-line-2)] px-2 py-0.5 font-mono text-[10px] text-[var(--color-fg-dim)]">
                   {data.inference!.attached.includes(p.name) && <span style={{ width: 5, height: 5, borderRadius: 5, background: "#76b900", display: "inline-block" }} />}
                   {p.name} <span className="text-[var(--color-fg-mut)]">({p.type})</span>
@@ -166,16 +169,25 @@ export function LiveOpenShell() {
               ))}
             </div>
           )}
-          <p className="mt-1.5 text-[10px] text-[var(--color-fg-mut)]">
-            The provider holds the key (<strong>values never shown</strong> — only key names). A sandbox it is attached to sees only a placeholder;
-            the supervisor swaps in the real key on egress{data.inference.endpointHost ? <>, and only to <code>{data.inference.endpointHost}</code></> : null}.
-          </p>
+          {fr ? (
+            <p className="mt-1.5 text-[10px] text-[var(--color-fg-mut)]">
+              Le provider détient la clé (<strong>valeurs jamais affichées</strong>, seulement les noms des clés). Une sandbox à laquelle il est attaché ne voit qu&apos;un placeholder ;
+              le supervisor substitue la vraie clé en egress{data.inference.endpointHost ? <>, et uniquement vers <code>{data.inference.endpointHost}</code></> : null}.
+            </p>
+          ) : (
+            <p className="mt-1.5 text-[10px] text-[var(--color-fg-mut)]">
+              The provider holds the key (<strong>values never shown</strong> — only key names). A sandbox it is attached to sees only a placeholder;
+              the supervisor swaps in the real key on egress{data.inference.endpointHost ? <>, and only to <code>{data.inference.endpointHost}</code></> : null}.
+            </p>
+          )}
         </div>
       )}
 
       {data && !data.ok ? (
         <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-bg-2)] p-3 text-[12px] text-[var(--color-fg-mut)]">
-          Couldn&apos;t reach the gateway: <code>{data.error}</code> — is the stack up? (<code>openshell status</code> in the shell)
+          {fr
+            ? <>Impossible de joindre la gateway : <code>{data.error}</code>. La stack est-elle démarrée ? (<code>openshell status</code> dans le shell)</>
+            : <>Couldn&apos;t reach the gateway: <code>{data.error}</code> — is the stack up? (<code>openshell status</code> in the shell)</>}
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border border-[var(--color-line)]">
@@ -185,19 +197,19 @@ export function LiveOpenShell() {
                 <th className="px-3 py-2 font-medium"><span className="inline-flex items-center gap-1"><Box size={12} /> Sandbox</span></th>
                 <th className="px-3 py-2 font-medium">Phase</th>
                 <th className="px-3 py-2 font-medium">Ready</th>
-                <th className="px-3 py-2 font-medium">Restarts</th>
-                <th className="px-3 py-2 font-medium">Age</th>
+                <th className="px-3 py-2 font-medium">{t("Restarts", "Redémarrages")}</th>
+                <th className="px-3 py-2 font-medium">{t("Age", "Âge")}</th>
               </tr>
             </thead>
             <tbody>
               {sandboxes.length === 0 ? (
-                <tr><td colSpan={5} className="px-3 py-4 text-center text-[var(--color-fg-mut)]">No sandboxes yet — create one in <em>Build Your Agent</em>.</td></tr>
+                <tr><td colSpan={5} className="px-3 py-4 text-center text-[var(--color-fg-mut)]">{fr ? <>Aucune sandbox pour l&apos;instant. Créez-en une dans <em>Construisez votre agent</em>.</> : <>No sandboxes yet — create one in <em>Build Your Agent</em>.</>}</td></tr>
               ) : sandboxes.map((s) => (
                 <tr key={s.name} onClick={() => setSel(s.name === sel ? null : s.name)}
                   className={`cursor-pointer border-t border-[var(--color-line)] transition hover:bg-[var(--color-bg-2)] ${sel === s.name ? "bg-[var(--color-bg-2)]" : ""}`}>
                   <td className="px-3 py-2 font-mono text-[var(--color-fg)]">{s.name}</td>
                   <td className="px-3 py-2 text-[var(--color-fg-dim)]">{s.phase}</td>
-                  <td className="px-3 py-2" style={{ color: s.ready ? "var(--color-nv-bright)" : "#e0a800" }}>{s.ready ? "yes" : "no"}</td>
+                  <td className="px-3 py-2" style={{ color: s.ready ? "var(--color-nv-bright)" : "#e0a800" }}>{s.ready ? t("yes", "oui") : t("no", "non")}</td>
                   <td className="px-3 py-2 text-[var(--color-fg-dim)]">{s.restarts}</td>
                   <td className="px-3 py-2 text-[var(--color-fg-mut)]">{age(s.created)}</td>
                 </tr>
@@ -213,10 +225,10 @@ export function LiveOpenShell() {
           <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-line)] px-3 py-2">
             <span className="font-mono text-[12px] text-[var(--color-fg)]">{sel}</span>
             <div className="ml-2 inline-flex overflow-hidden rounded-md border border-[var(--color-line-2)] text-[11px]">
-              {(["logs", "decisions", "policy"] as Tab[]).map((t) => (
-                <button key={t} onClick={() => setTab(t)} className="inline-flex items-center gap-1 px-2.5 py-1 font-medium transition"
-                  style={{ background: tab === t ? "var(--color-nv)" : "transparent", color: tab === t ? "#06080b" : "var(--color-fg-dim)" }}>
-                  {t === "logs" ? <ScrollText size={11} /> : t === "decisions" ? <ShieldCheck size={11} /> : <Shield size={11} />} {t === "logs" ? "Logs / audit" : t === "decisions" ? "Policy decisions" : "Policy"}
+              {(["logs", "decisions", "policy"] as Tab[]).map((k) => (
+                <button key={k} onClick={() => setTab(k)} className="inline-flex items-center gap-1 px-2.5 py-1 font-medium transition"
+                  style={{ background: tab === k ? "var(--color-nv)" : "transparent", color: tab === k ? "#06080b" : "var(--color-fg-dim)" }}>
+                  {k === "logs" ? <ScrollText size={11} /> : k === "decisions" ? <ShieldCheck size={11} /> : <Shield size={11} />} {k === "logs" ? "Logs / audit" : k === "decisions" ? t("Policy decisions", "Décisions de policy") : "Policy"}
                 </button>
               ))}
             </div>
@@ -229,16 +241,16 @@ export function LiveOpenShell() {
               </div>
             )}
             <button onClick={() => setReloadN((n) => n + 1)} className="ml-auto inline-flex items-center gap-1 text-[11px] text-[var(--color-fg-mut)] hover:text-[var(--color-fg)]">
-              <RefreshCw size={11} className={detailLoading ? "animate-spin" : ""} /> reload
+              <RefreshCw size={11} className={detailLoading ? "animate-spin" : ""} /> {t("reload", "recharger")}
             </button>
           </div>
           {tab === "decisions" ? (
             <div className="max-h-80 overflow-auto p-2">
               {detailLoading ? (
-                <p className="p-2 font-mono text-[11px] text-[var(--color-fg-mut)]">loading…</p>
+                <p className="p-2 font-mono text-[11px] text-[var(--color-fg-mut)]">{t("loading…", "chargement…")}</p>
               ) : (() => {
                 const decisions = parseDecisions(detail);
-                if (decisions.length === 0) return <p className="p-2 font-mono text-[11px] text-[var(--color-fg-mut)]">No egress decisions in the recent feed. (The agent hasn&apos;t tried to reach anything lately.)</p>;
+                if (decisions.length === 0) return <p className="p-2 font-mono text-[11px] text-[var(--color-fg-mut)]">{t("No egress decisions in the recent feed. (The agent hasn't tried to reach anything lately.)", "Aucune décision egress dans le flux récent. (L'agent n'a rien tenté de joindre récemment.)")}</p>;
                 return (
                   <div className="space-y-1">
                     {decisions.map((d, i) => {
@@ -259,13 +271,15 @@ export function LiveOpenShell() {
               })()}
             </div>
           ) : (
-            <pre className="max-h-80 overflow-auto p-3 font-mono text-[11px] leading-relaxed text-[var(--color-code-fg)]">{detailLoading ? "loading…" : (detail || "(no output)")}</pre>
+            <pre className="max-h-80 overflow-auto p-3 font-mono text-[11px] leading-relaxed text-[var(--color-code-fg)]">{detailLoading ? t("loading…", "chargement…") : (detail || t("(no output)", "(aucune sortie)"))}</pre>
           )}
         </div>
       )}
 
       <p className="mt-2 text-[10px] text-[var(--color-fg-mut)]">
-        Click a sandbox for its <strong>logs/audit</strong> (<code>openshell logs &lt;name&gt; --source …</code>) and full <strong>policy</strong> (<code>openshell policy get &lt;name&gt; --full</code>). Served read-only via <code>/api/openshell</code>.
+        {fr
+          ? <>Cliquez sur une sandbox pour voir ses <strong>logs/audit</strong> (<code>openshell logs &lt;name&gt; --source …</code>) et sa <strong>policy</strong> complète (<code>openshell policy get &lt;name&gt; --full</code>). Servi en lecture seule via <code>/api/openshell</code>.</>
+          : <>Click a sandbox for its <strong>logs/audit</strong> (<code>openshell logs &lt;name&gt; --source …</code>) and full <strong>policy</strong> (<code>openshell policy get &lt;name&gt; --full</code>). Served read-only via <code>/api/openshell</code>.</>}
       </p>
     </figure>
   );

@@ -1,0 +1,18 @@
+OpenShift est le **Kubernetes d'entreprise de Red Hat** : Kubernetes plus tout ce qu'il faut pour l'exploiter en production, à savoir une console intégrée, une sécurité par défaut, des outils de build et de déploiement, et la CLI `oc`. Pour un agent IA, cela veut dire de vrais garde-fous.
+
+## Pourquoi faire tourner un agent sur OpenShift ?
+- **Isolation par défaut** — les namespaces, le RBAC et les Security Context Constraints bornent ce qu'une charge de travail peut faire.
+- **Network policy** — vous pouvez cloisonner l'egress de l'agent.
+- **Limites de ressources** — des plafonds CPU/mémoire empêchent un agent qui s'emballe d'accaparer la machine.
+- **Routes** — chaque service obtient un vrai nom d'hôte avec TLS, sans bricolage de ports.
+- **Une console** — une vraie UI pour voir les pods, les logs et les events pendant que vous construisez.
+
+## Défense en profondeur
+
+Faire tourner l'agent sur OpenShift (+ OpenShell) empile plusieurs protections indépendantes. Cliquez sur chaque couche :
+
+<SecurityLayers />
+
+<Callout type="rh" title="Tout ceci se transpose en production">
+Les API OpenShift, la CLI <code>oc</code> et le Helm chart que vous avez déployé sont ceux que vous utiliseriez sur un vrai cluster de production. Ce que vous apprenez ici s'applique directement.
+</Callout>

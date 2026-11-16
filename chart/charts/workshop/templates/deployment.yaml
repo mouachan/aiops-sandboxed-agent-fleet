@@ -66,6 +66,8 @@ spec:
               value: {{ include "workshop.eventsNamespace" . | quote }}
             - name: LAB_USER
               value: {{ .Values.global.lab.user | default "" | quote }}
+            - name: WORKSHOP_DEFAULT_LANG
+              value: {{ .Values.defaultLang | default "en" | quote }}
             # --- OpenShell gateway (plaintext, in-cluster) ---
             - name: OPENSHELL_GATEWAY_ENDPOINT_URL
               value: {{ $gw | quote }}

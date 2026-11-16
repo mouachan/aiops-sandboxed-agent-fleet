@@ -1,0 +1,46 @@
+Vous avez créé `shifty` avec `openshell sandbox create`. Chaque sandbox est réconciliée en un **pod**, mais un pod *scellé*. Pour lancer des commandes de l'*agent*, vous entrez **dans la sandbox**, et il existe deux façons d'y entrer, qui mènent à deux mondes différents. Comprendre la différence, c'est comprendre OpenShell.
+
+## Une sandbox est un pod
+
+```bash
+oc -n "$OPENSHELL_NS" get pod default--shifty -o wide
+```
+
+C'est un pod normal (nommé `default--shifty` : la gateway préfixe le workspace) avec un conteneur `agent`. Son supervisor tourne dans un pod compagnon `os-supervisor-…`. Et l'agent OpenClaw s'exécute dans le **runtime de sandbox OpenShell**, à l'intérieur de ce conteneur : un système de fichiers restreint par Landlock, et chaque connexion réseau vérifiée par rapport à la policy avant de sortir.
+
+## Deux façons d'entrer
+
+**`oc exec`** arrive directement dans le conteneur `agent`, en dehors de la gateway : rien de ce qu'il fait n'est vérifié par rapport à la policy ni enregistré dans l'audit log :
+
+```bash
+oc -n "$OPENSHELL_NS" exec default--shifty -c agent -- sh -c 'echo HTTPS_PROXY="$HTTPS_PROXY"; ls /sandbox >/dev/null 2>&1 && echo "can see /sandbox" || echo "no /sandbox here"'
+```
+
+<Callout type="warn" title="Lab partagé ? Attendez-vous à Forbidden ici">
+Dans un lab multi-utilisateurs, votre ServiceAccount n'a <strong>pas le droit</strong> de faire <code>oc exec</code> dans les pods des sandboxes : la commande ci-dessus renvoie <code>Forbidden</code> (<code>cannot create resource "pods/exec"</code>). C'est le RBAC qui fait son travail : un exec brut contournerait la gateway, son audit trail et le sceau de la sandbox. Utilisez <code>openshell sandbox exec</code> (ci-dessous) : il passe par la gateway et arrive à l'intérieur du sceau. Sur un cluster mono-utilisateur, <code>oc exec</code> fonctionne et vous montre le shell extérieur.
+</Callout>
+
+**`openshell sandbox exec`** arrive dans le contexte scellé de l'*agent* : système de fichiers Landlock (`/sandbox`, `/tmp`) et proxy d'egress gouverné. C'est là que l'agent vit réellement :
+
+```bash
+openshell sandbox exec -n shifty -- sh -c 'echo HTTPS_PROXY="$HTTPS_PROXY"; whoami; pwd'
+```
+
+Remarquez qu'il n'y a de `HTTPS_PROXY` dans **aucun** des deux shells : dans OpenShell 0.1.x, l'egress est intercepté de façon transparente. Chaque connexion ouverte par l'agent est vérifiée par rapport à sa policy (binaire, hôte et port, puis requête HTTP) et journalisée : `openshell logs shifty --source sandbox` affiche des lignes comme `NET:OPEN … ALLOWED … [policy:websearch]` ; tout ce qui n'est pas autorisé est refusé. Le shell `oc exec` se trouve hors de ce chemin : pas de décisions de policy, pas d'audit trail. Cet écart, *c'est* le sceau.
+
+## Lancez la CLI de l'agent
+
+Le binaire `openclaw` vit dans la sandbox ; lancez-le via l'exec scellé :
+
+```bash
+openshell sandbox exec -n shifty -- openclaw --help
+openshell sandbox exec -n shifty -- openclaw config get gateway
+```
+
+<Callout type="tip" title="Modèle mental">
+<strong>OpenShell</strong> gère les sandboxes depuis l'extérieur (le plan de contrôle : <code>openshell …</code> / <code>oc</code>). <strong>Dans une sandbox</strong>, vous lancez les commandes propres à l'agent avec <code>openshell sandbox exec -n shifty -- openclaw …</code>. N'utilisez <code>oc exec</code> que pour le shell extérieur du pod : il contourne les vérifications de policy et l'audit trail de la gateway, ce n'est donc pas ainsi que l'agent voit le monde.
+</Callout>
+
+<Callout type="rh" title="Pourquoi le sceau compte">
+C'est la même isolation qui empêche une sandbox de la gateway d'atteindre l'API Kubernetes du cluster : l'agent ne sort que par le proxy gouverné. Vous pouvez inspecter le pod de l'extérieur autant que vous voulez ; l'agent, lui, reste enfermé. C'est ce qui vous permet d'exécuter des agents non fiables en toute sécurité.
+</Callout>

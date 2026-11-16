@@ -3,15 +3,17 @@ import { type ReactNode } from "react";
 import { ExternalLink } from "lucide-react";
 import { serviceUrl, SERVICES, type ServiceName } from "@/lib/routes";
 import { useLabEnv } from "@/lib/useLabEnv";
+import { useT } from "@/lib/lang-client";
 
 export function ServiceLink({ service, children }: { service: ServiceName; children?: ReactNode }) {
   const lab = useLabEnv();
+  const t = useT();
   const href = serviceUrl(service, lab);
-  const label = children ?? `Open ${SERVICES[service].label}`;
+  const label = children ?? t(`Open ${SERVICES[service].label}`, `Ouvrir ${SERVICES[service].label}`);
 
   if (!href) {
     // e.g. the OpenShift console in lab mode (attendees have no console account)
-    return <span className="font-medium text-[var(--color-fg-mut)]" title="Not available on this workshop instance">{label}</span>;
+    return <span className="font-medium text-[var(--color-fg-mut)]" title={t("Not available on this workshop instance", "Non disponible sur cette instance du workshop")}>{label}</span>;
   }
   return (
     <a href={href} target="_blank" rel="noreferrer"

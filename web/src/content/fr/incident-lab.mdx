@@ -1,0 +1,56 @@
+Mettons maintenant la fleet au travail sur un vrai incident, que vous provoquez exprès, et parcourons toute la boucle sur cette page : **vous cassez → la fleet enquête → elle recommande un correctif → vous vérifiez, ajustez et approuvez.**
+
+## Le chef d'orchestre
+
+Une fleet de spécialistes ne sert à rien tant que quelque chose ne les *combine* pas. C'est le rôle d'un petit **orchestrateur** intégré à cette page, sans app séparée. Quand vous cliquez sur **Investiguer**, il :
+
+1. **Distribue** : confie à chaque spécialiste une probe de diagnostic prescrite pour son backend et l'exécute avec `openclaw agent --local`, pour que le travail se fasse **à l'intérieur du sceau de l'agent**, sous son egress limité à un seul backend.
+2. **Lit, pour de vrai** : chaque agent exécute son **skill `cluster-telemetry`** pour interroger son propre backend (`logs`→Loki, `metrics`→Prometheus, `traces`→Tempo, `events`→Loki) et interprète ce qui revient : le taux d'erreur, les lignes de log d'erreur, le span en échec et le changement récent enregistré par les events (`payments` ramené à 0).
+3. **Conclut** : transmet tous les constats à un **agent analyst** dédié (aucun accès à la télémétrie, aucun tool call), qui en tire une cause racine **et un correctif recommandé**, déduits de la télémétrie en direct (taux d'erreur + logs d'erreur + span de trace en échec, reliés au changement que montrent les events : `payments` ramené à 0), et non devinés.
+
+Vous voyez **les constats de chaque agent** *et* le verdict final de l'analyste : c'est transparent, pas une boîte noire. Le chef d'orchestre ne touche jamais lui-même un backend ; ce sont les agents qui font les lectures gouvernées. Pendant l'exécution, regardez l'onglet **Décisions de policy** de [Live](/learn/live) : chaque agent, son unique hôte autorisé, chaque appel journalisé.
+
+<Callout type="note" title="Pourquoi un skill et pas web_fetch">
+L'outil intégré <code>web_fetch</code> d'OpenClaw refuse les adresses privées, internes ou du cluster (une protection contre le SSRF) : un agent scellé ne peut donc pas l'utiliser pour lire Loki/Prometheus/Tempo sur <code>*.svc.cluster.local</code>. Le <strong>skill cluster-telemetry</strong> appelle <code>curl</code> à la place : l'appel reste gouverné par la policy d'egress à backend unique de l'agent, et la protection SSRF reste active partout ailleurs. L'agent exécute <em>une seule</em> requête prescrite (une exploration libre déborderait du contexte du modèle), puis interprète le résultat avec ses propres mots.
+</Callout>
+
+## La démo, déployée
+
+<DemoArchitecture />
+
+Un **loadgen** continu sollicite la **shop-app** instrumentée qui, à chaque checkout, fait un vrai appel HTTP à sa dépendance **`payments`**, et émet les trois signaux vers la stack d'observabilité du cluster : **traces** → Tempo (OTLP), **metrics** → Prometheus (un ServiceMonitor scrape `/metrics`) et **logs** → Loki (le log forwarder du cluster expédie son stdout). Un **event-exporter** dédié à votre instance surveille votre namespace de démo et envoie aussi ses events Kubernetes dans Loki. La fleet scellée lit ces backends : quand `payments` tombe, cela apparaît sur tous les signaux à la fois, et les chiffres de trafic en direct (ci-dessous) bougent en temps réel.
+
+## La boucle : casser, enquêter, corriger
+
+<IncidentLab />
+
+1. **Déployer** installe `shop-app` (un petit service instrumenté) et un **loadgen** dans votre namespace de démo, qui le sollicite en continu : les **chiffres de trafic en direct** (succès/s, erreurs/s, taux d'erreur) et les logs/metrics/traces sont donc toujours réels.
+2. **Injecter la panne** met une **vraie dépendance hors service** : `kubectl -n "$DEMO_NS" scale deploy/payments --replicas=0` (votre namespace de démo, <code><Ns which="demo" /></code>). Le checkout de shop-app fait un vrai appel HTTP à `payments` à chaque requête : sans payments, ces appels échouent réellement (connection refused) et le checkout renvoie **503**. Rien d'artificiel : regardez le pod payments s'arrêter et le **taux d'erreur monter à 100 %**.
+3. **Investiguer** lance la fleet sur la télémétrie en direct : `metrics` voit le pic de 5xx, `logs` voit les lignes `checkout failed: payment call failed…`, `traces` voit le span `charge-payment` en échec, et **`events` trouve la preuve décisive** : `payments` a été ramené à 0 juste au moment où les erreurs ont commencé. L'analyste se demande *« qu'est-ce qui a changé ? »* et attribue l'incident à la panne de la dépendance.
+4. **Votre correctif** est la remédiation approuvée par un humain, un **vrai correctif** : `kubectl -n "$DEMO_NS" scale deploy/payments --replicas=1`, qui rétablit la dépendance. Regardez le taux d'erreur retomber à 0. L'appliquer est la seule étape qui appartient à un humain.
+
+<Callout type="note" title="Ce que fait vraiment « Injecter la panne » : une vraie panne de dépendance">
+Aucun flag simulé. <strong>Injecter la panne</strong> exécute <code>kubectl -n "$DEMO_NS" scale deploy/payments --replicas=0</code> :
+la dépendance <code>payments</code> de shop-app est réellement mise hors ligne. shop-app appelle
+<code>payments</code> en HTTP à chaque checkout ; sans elle, ces appels échouent avec un vrai
+<strong>connection refused</strong> et le checkout renvoie 503. La panne <em>émerge</em> d'une
+vraie dépendance cassée, exactement comme lors d'une vraie panne. La fleet la voit dans les metrics (5xx), les logs
+(« payment call failed… »), les traces (span <code>charge-payment</code> en échec) et, de façon décisive, dans les
+<strong>events</strong> (<code>payments scaled to 0</code>). <strong>Appliquer le correctif</strong> est
+la vraie correction : <code>kubectl -n "$DEMO_NS" scale deploy/payments --replicas=1</code>. Un vrai problème, diagnostiqué
+à partir d'une vraie télémétrie, corrigé par un vrai changement.
+</Callout>
+
+## Les agents recommandent, les humains décident, GitOps livre
+
+Les agents ne touchent jamais le cluster : ils sont coupés de l'API Kubernetes et ne font que *lire* la télémétrie. Ils produisent une **recommandation** ; l'humain approuve (et peut modifier) le changement **réel**. Cet écart entre « ce que la fleet a suggéré » et « ce que vous avez appliqué », c'est le human-in-the-loop, rendu explicite et tracé.
+
+<Callout type="rh" title="Manuel ici, ArgoCD en production">
+Dans ce lab, le correctif approuvé lève la panne injectée après une confirmation. En production, c'est un <strong>git revert</strong> qu'un relecteur approuve et qu'<strong>ArgoCD</strong> synchronise : même schéma (la fleet recommande → l'humain approuve → c'est livré), simplement avec une livraison GitOps. Le travail de la fleet et le contrôle humain sont identiques.
+</Callout>
+
+<Callout type="note" title="Corsez l'incident">
+La panne de payments (checkouts en 503) est la démo propre, et la seule panne intégrée. Pour le hackathon, injectez quelque chose que seule la <em>combinaison</em> des quatre signaux permet d'expliquer (des spans lents dans <code>traces</code>, une violation de SLO dans <code>metrics</code>, des erreurs dans <code>logs</code>) et regardez l'analyste réconcilier les quatre, puis recommander le correctif que vous approuvez.
+</Callout>
+
+Voilà le capstone : un copilote SRE gouverné et observable, déployable de façon reproductible, chaque agent avec des limites prouvées, qui enquête depuis cette page, et qu'un humain garde honnête sur la seule étape qui change le monde.

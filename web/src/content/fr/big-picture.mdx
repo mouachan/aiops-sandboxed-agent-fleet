@@ -1,0 +1,22 @@
+La stack du workshop est un empilement de stacks. De bas en haut, chaque couche offre à celle du dessus une surface plus sûre et mieux gérée, jusqu'à obtenir, tout en haut, un agent IA qui ne peut faire que ce que votre policy autorise.
+
+<StackDiagram />
+
+## Lire la stack
+
+1. **OpenShift** — le Kubernetes d'entreprise de Red Hat. De vraies API OpenShift + `oc`, les Routes, les SecurityContextConstraints et la console web.
+2. **OpenShell** — le plan de contrôle des sandboxes ; les agents créés par la gateway deviennent des pods isolés, soumis à une policy. On l'atteint par son Service interne au cluster (volontairement non exposé sur une Route publique).
+3. **OpenClaw** — l'agent (« Shifty 🦞 ») que *vous créez* sur la gateway, qui tourne dans une sandbox scellée avec une UI de contrôle web.
+4. **Inférence** — l'agent appelle un endpoint de modèle compatible OpenAI pour réfléchir (dans ce lab, le modèle `nemotron` servi par OpenShift AI Models-as-a-Service). Il ne détient qu'une clé placeholder, que le supervisor OpenShell remplace par la vraie à la sortie.
+
+<Callout type="note" title="Pré-déployé ou fait par vous">
+Les couches 1–2 (le cluster et la gateway OpenShell) sont <strong>pré-provisionnées</strong> : la Partie II montre comment, et la Partie III vous la fait piloter. La couche 3, l'<strong>agent lui-même</strong>, c'est ce que <em>vous</em> construisez à la main dans la Partie IV.
+</Callout>
+
+<Callout type="rh" title="Pourquoi un vrai cluster ?">
+Faire tourner l'agent <em>sur OpenShift</em> lui fait hériter gratuitement des garde-fous d'entreprise : namespaces, RBAC, security context constraints, network policy, limites de ressources. L'agent vit dans une boîte que vous contrôlez.
+</Callout>
+
+## Deux « gateways » (ne les confondez pas)
+- **Gateway OpenShell** (:8080) — le *plan de contrôle des sandboxes* (plateforme).
+- **Gateway OpenClaw** (:30789) — l'*UI de contrôle* propre à l'agent, qui tourne dans la sandbox.

@@ -1,0 +1,23 @@
+La fleet lancée, voici l'ensemble sur une seule page : chaque agent, son état Ready ou non, et l'**egress exact que sa policy autorise**. C'est ici que la gouvernance devient quelque chose que vous pouvez *voir* : côte à côte, la policy de chaque agent est **propre à son outil**.
+
+<FleetView />
+
+## Ce que vous voyez
+
+Chaque carte est un agent, lu en direct depuis le cluster :
+
+- **Statut** : `Ready` signifie que la gateway a démarré la sandbox et chargé sa policy.
+- **Peut joindre** : tiré directement de la policy (de base) de l'agent (`openshell policy get <agent> --base`, sans l'endpoint d'inférence qu'y ajoute le provider attaché). Tous les agents partagent le **registry** interne au cluster (pour pouvoir installer leur skill) ; au-delà :
+  - `logs` joint **Loki** et rien d'autre,
+  - `metrics` joint **Prometheus** et rien d'autre,
+  - `traces` joint **Tempo** et rien d'autre,
+  - `events` joint **Loki** (le flux d'events Kubernetes) et rien d'autre,
+  - `analyst` ne joint **rien** : il se contente de conclure.
+
+Pas de confiance sur parole ici. Si l'agent `metrics` tentait d'interroger Loki, le proxy du supervisor refuserait, et vous verriez ce refus dans l'onglet **Décisions de policy** de la page [Live](/learn/live), attribué à l'agent et à la règle. Le rayon d'impact de chaque agent correspond exactement à sa mission.
+
+<Callout type="rh" title="Voici la réponse à « puis-je faire confiance à une fleet d'agents ? »">
+Pas la « confiance » comme une impression, mais la confiance comme quelque chose que vous <strong>lisez sur une page</strong>. Chaque capacité de chaque agent (son outil) et chaque endroit qu'il peut joindre (son egress) sont explicites, propres à chaque agent et auditables. Ajoutez un dixième agent : le tableau reste tout aussi lisible.
+</Callout>
+
+La fleet est en place et ses limites sont prouvées. Prochaine étape : la piloter. Confiez-lui un incident et regardez le chef d'orchestre répartir le travail.

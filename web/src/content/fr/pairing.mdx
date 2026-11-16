@@ -1,0 +1,40 @@
+La première fois que vous ouvrez la Control UI d'OpenClaw dans votre navigateur, elle demande un **appairage unique de l'appareil**. C'est une fonction de sécurité : la gateway ne fait confiance qu'aux navigateurs approuvés par un opérateur de l'hôte. Faisons-le pour de vrai, depuis le shell.
+
+<Callout type="note" title="Pourquoi cela existe">
+OpenClaw donne à chaque navigateur une identité d'appareil (une paire de clés). Un navigateur distant doit être approuvé une fois par quelqu'un qui a un accès opérateur : c'est vous, en exécutant la CLI <strong>dans la sandbox de votre agent</strong> via la gateway OpenShell.
+</Callout>
+
+## 1. Connectez-vous
+
+Ouvrez l'UI OpenClaw (leçon précédente) et connectez-vous avec votre mot de passe. La page affiche alors **« Device pairing required »** : votre navigateur vient d'envoyer une demande d'appairage. Laissez cet onglet ouvert.
+
+## 2. Approuvez-la
+
+```bash
+approve-browser
+```
+
+La commande approuve la demande en attente la plus récente, celle de votre navigateur, et affiche `Approved.` Si elle indique qu'aucune demande n'est en attente, revenez à l'étape 1.
+
+## 3. Rechargez
+
+Rechargez l'onglet de l'UI OpenClaw : vous êtes connecté.
+
+## Facultatif : ce que fait `approve-browser`
+
+Pour information seulement, rien à exécuter : la commande liste les demandes d'appairage (`sbox-openclaw devices list`) et approuve celle de votre navigateur (`sbox-openclaw devices approve <REQUEST_ID>`), avec la CLI OpenClaw exécutée dans votre sandbox via la gateway OpenShell.
+
+<Callout type="note" title="« Scope upgrade pending approval » ? Activez d'abord les approbations">
+Sur une gateway toute neuve, l'opérateur est appairé avec le seul scope <code>operator.pairing</code> : il peut <em>demander</em> un appairage mais ne peut encore <em>approuver</em> personne, donc la commande ci-dessus peut échouer avec <strong>« scope upgrade pending approval. »</strong> Corrigez-le une fois pour toutes : ouvrez la page <a href="/approvals">Approvals</a> (barre d'outils de l'en-tête) et cliquez sur <strong>Activer les approbations</strong>. Cela donne à l'opérateur le scope admin (et redémarre la gateway de l'agent) pour que les approbations fonctionnent ensuite. Le provisioning scripté le fait pour vous à la création de l'agent ; vous n'avez besoin du bouton que si vous avez construit l'agent à la main ou si vous êtes tombé sur ce blocage.
+</Callout>
+
+## Gérer les appareils
+
+```bash-ref
+sbox-openclaw devices remove <DEVICE_ID>   # revoke a device
+sbox-openclaw devices clear                # clear all paired devices
+```
+
+<Callout type="rh" title="La bonne posture en conditions réelles">
+En production, vous garderiez l'appairage activé et approuveriez vos collègues de façon délibérée. Pour une machine de workshop jetable, vous pourriez le désactiver (<code>gateway.controlUi.dangerouslyDisableDeviceAuth</code>), mais l'intérêt ici est justement d'apprendre le flux d'approbation.
+</Callout>

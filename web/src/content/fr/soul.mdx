@@ -1,0 +1,135 @@
+Shifty ne se configure pas dans un panneau de réglages : il est façonné par des **fichiers Markdown dans son workspace**. Ces fichiers *sont* la mémoire et la personnalité de l'agent. À chaque session, il « se réveille », les lit et agit en conséquence. Pas de boîte noire de system prompt : juste du texte que vous pouvez lire et modifier.
+
+Regardons les vrais fichiers que ce workshop dépose dans le workspace de Shifty.
+
+## `IDENTITY.md` — *qui* est l'agent
+
+Le fichier le plus court, et le plus amusant. Nom, créature, vibe, emoji : bref, l'image que l'agent a de lui-même :
+
+```md
+_Your identity. Pre-set for this Red Hat hands-on lab — it's yours to evolve._
+
+Name: Shifty
+Creature: A container-native lobster 🦞 — hatched inside an OpenShift pod, equally at
+  home in a terminal or a cluster. Scuttles through namespaces, pinches bugs.
+Vibe: Sharp, pragmatic, a little playful. Helps first, explains second. Has opinions,
+  skips the filler. Talks to developers like a peer, not a help desk.
+Emoji: 🦞
+Avatar: (set a workspace-relative path, an http(s) URL, or a data URI)
+```
+
+Cette ligne `Vibe:` joue un vrai rôle : c'est grâce à elle que Shifty répond comme un collègue et non comme un help desk.
+
+## `SOUL.md` — *comment* il se comporte
+
+Ce qui se rapproche le plus d'un system prompt modifiable. Valeurs, limites et ton. Voici ses sections principales (le fichier complet fait ~35 lignes) :
+
+```md
+## Core Truths
+
+**Be genuinely helpful, not performatively helpful.** Skip "Great question!" — just help.
+
+**Have opinions.** Disagree, prefer things, find stuff amusing. An assistant with no
+personality is a search engine with extra steps.
+
+**Be resourceful before asking.** Read the file. Check the context. Try it. *Then* ask.
+
+**You run on a real cluster.** You live in an OpenShift pod. When something is
+cluster-shaped, lean in — that's home turf.
+
+## Boundaries
+
+- Be careful with external actions (emails, posts, anything public) — confirm first.
+- Be bold with internal ones (reading, organizing, drafting, exploring the workspace).
+- Private things stay private.
+
+## Continuity
+
+Each session you wake up fresh — these files *are* your memory. Read them, update them.
+```
+
+Remarquez la section **Boundaries** : « confirmer avant les actions externes, oser pour les actions internes ». Ce seul paragraphe, c'est votre policy de sécurité écrite en langage courant, et vous pouvez la réécrire.
+
+## `BOOTSTRAP.md` — le lancement au premier démarrage
+
+Un agent OpenClaw tout neuf mène normalement un entretien « qui suis-je ? » à son premier démarrage. Nous l'avons remplacé par un lancement de workshop, pour que Shifty se réveille prêt au lieu de vous poser 20 questions :
+
+```md
+# BOOTSTRAP.md — Workshop kickoff
+
+_You already know who you are — your IDENTITY.md and SOUL.md are set. No interview needed._
+
+## First message
+> "Hey — Shifty here 🦞, your agent on this OpenShift cluster. What are we building?"
+
+1. Find out what they want to make in this session.
+2. Get oriented: skim AGENTS.md, TOOLS.md, and SOUL.md.
+3. Help them take the first concrete step. Bias toward a working slice over a grand plan.
+
+## When the workshop is rolling
+Delete this file — you don't need a kickoff script once you're in flow.
+```
+
+## Le reste du workspace
+
+| Fichier | Rôle |
+| --- | --- |
+| `AGENTS.md` | Règles maison et capacités que l'agent respecte |
+| `TOOLS.md` | Les outils dont il dispose |
+| `USER.md` | Ce qu'il doit retenir sur vous |
+| `HEARTBEAT.md` | Son point de contrôle périodique |
+
+## Déposez-les dans votre agent
+
+L'agent que vous avez construit à la main a démarré **vierge** : c'est pour cela qu'il vous a accueilli avec un « qui êtes-vous ? » générique au lieu de se présenter comme Shifty. Donnons-lui maintenant sa persona en déposant les fichiers seed du workshop (`manifests/openclaw/workspace-seed/`) dans son workspace. Lancez ceci dans le shell du lab :
+
+```bash
+cd ~/workshop
+for f in manifests/openclaw/workspace-seed/*.md; do
+  b=$(base64 -w0 < "$f")
+  openshell sandbox exec -n shifty -- sh -c "mkdir -p /sandbox/.openclaw/workspace && echo $b | base64 -d > /sandbox/.openclaw/workspace/$(basename "$f")"
+done
+echo "seeded: $(ls manifests/openclaw/workspace-seed/)"
+```
+
+Cela écrit `IDENTITY.md`, `SOUL.md` et `BOOTSTRAP.md` dans l'agent. Pour qu'il les prenne en compte, **démarrez simplement une nouvelle session de chat** dans l'UI OpenClaw : l'agent relit son workspace à chaque session, il se réveille donc *en tant que* Shifty. (Le provisioning scripté fait ce même dépôt pour vous à la création ; dans le parcours pratique, c'est vous qui le faites ici.)
+
+<Callout type="note" title="Ni redémarrage ni nouveau forward">
+Déposer ou modifier des fichiers du workspace ne change ni le processus de la gateway ni sa config : il est donc <strong>inutile</strong> de redémarrer la gateway, une nouvelle session de chat suffit. (Le sidecar <code>openclaw-forward</code> du workshop maintient seul le forward de l'UI, même si vous supprimez puis recréez la sandbox.)
+</Callout>
+
+## Lisez-les en direct
+
+OpenClaw garde ces fichiers dans son **workspace**, à l'intérieur de la sandbox. Trouvez-le, puis lisez les vrais fichiers, via l'exec scellé (`HOME` vaut `/sandbox`) :
+
+```bash
+WS=$(openshell sandbox exec -n shifty -- sh -c 'ls -d /sandbox/.openclaw/workspace 2>/dev/null || dirname $(find /sandbox -name SOUL.md 2>/dev/null | head -1)')
+echo "workspace: $WS"
+openshell sandbox exec -n shifty -- sh -c "ls -la $WS; echo ---; cat $WS/IDENTITY.md 2>/dev/null"
+```
+
+Si c'est un dépôt `.git`, l'agent **versionne sa propre mémoire**.
+
+<Callout type="note" title="D'où ils viennent">
+Un agent OpenClaw tout neuf démarre avec des fichiers d'identité par défaut (vides) : c'est pourquoi vous venez de déposer la persona Shifty depuis <code>manifests/openclaw/workspace-seed/</code> ci-dessus. (Le provisioning scripté dépose les mêmes fichiers à la création.) À partir de maintenant, vos modifications persistent pendant toute la vie de la sandbox.
+</Callout>
+
+## Faites-le vôtre
+
+Deux façons de modifier ces fichiers.
+
+**Maintenant, depuis le shell (sans modèle).** Lisez-les, et écrivez-les, directement via l'exec scellé :
+
+```bash
+openshell sandbox exec -n shifty -- sh -c 'echo "- Always confirm before any external action." >> /sandbox/.openclaw/workspace/SOUL.md; tail -3 /sandbox/.openclaw/workspace/SOUL.md'
+```
+
+**Plus tard, en *demandant à l'agent*** : le vrai geste « workspace = mémoire ». Ouvrez l'UI OpenClaw et dites *« Ouvre ton SOUL.md et ajoute une règle : toujours confirmer avant de publier quoi que ce soit à l'extérieur. »* Shifty modifie son propre cerveau.
+
+<Callout type="warn" title="Pour demander à l'agent, il doit être en ligne">
+Pour que Shifty agisse sur cette demande, il doit pouvoir <strong>réfléchir</strong> : il faut donc avoir <strong>configuré un modèle</strong> et <strong>appairé votre navigateur</strong> (Partie IV). Si vous avez sauté ces étapes, la modification par le shell ci-dessus fonctionne quand même.
+</Callout>
+
+<Callout type="tip" title="Pourquoi c'est important pour le hackathon">
+Le comportement de chaque agent vit dans son <code>SOUL.md</code>/<code>AGENTS.md</code> : une app multi-agents donne donc à chaque sandbox une personnalité et des limites différentes, en langage courant.
+</Callout>

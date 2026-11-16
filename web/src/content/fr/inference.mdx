@@ -1,0 +1,133 @@
+Votre agent a besoin d'un **cerveau** : un endroit où envoyer son raisonnement. Il parle à un **endpoint d'inférence compatible OpenAI**. Dans ce lab, c'est le modèle `nemotron` servi par OpenShift AI Models-as-a-Service (toute API distante compatible OpenAI fonctionne de la même façon). Vous fournissez trois éléments :
+
+- **URL de base** : l'endpoint, qui se termine par `/v1` (par ex. `https://api.openai.com/v1`)
+- **Modèle** : l'identifiant du modèle à utiliser (par ex. `gpt-4o`)
+- **Clé d'API** : la clé de votre fournisseur (par ex. une clé `sk-…` issue du dashboard de votre fournisseur)
+
+<Callout type="note" title="Providers : pourquoi votre clé n'entre jamais dans l'agent">
+Nous ne collons pas la clé dans l'agent. Nous enregistrons plutôt l'endpoint + la clé auprès de la <strong>gateway</strong> comme <em>provider</em>, décrit par un <em>provider profile</em> (quel hôte, quel port, quels binaires, comment la clé est envoyée). Quand une sandbox est créée avec ce provider attaché, l'agent ne reçoit qu'un <strong>placeholder</strong> dans <code>$OPENAI_API_KEY</code> (de la forme <code>openshell:resolve:env:v&lt;revision&gt;_OPENAI_API_KEY</code>). Le <strong>supervisor</strong> de la sandbox remplace le placeholder par la vraie clé en egress : uniquement vers l'endpoint autorisé par le profile, et uniquement depuis les binaires qu'il liste. L'agent <strong>ne détient donc jamais votre clé</strong>, et un placeholder qui fuite ne vaut rien ailleurs.
+</Callout>
+
+<Callout type="rh" title="Déjà prêt pour vous">
+Votre endpoint, votre modèle et votre clé d'API personnelle sont déjà dans votre <code>.env</code>, et le provider de la gateway est enregistré. Suivez les étapes ci-dessous pour voir chaque élément et vérifier qu'il fonctionne : les commandes de provider sont idempotentes, rien ne casse.
+</Callout>
+
+## Étape 1 — Vos valeurs sont déjà dans `.env`
+
+Rien à modifier : votre endpoint, votre modèle et votre clé d'API personnelle sont déjà dans `~/workshop/.env`. L'étape suivante les charge dans votre shell.
+
+## Étape 2 — Chargez-les dans votre shell
+
+```bash
+cd ~/workshop
+set -a; . .env; set +a
+echo "URL=$NEMOCLAW_INFERENCE_BASE_URL  MODEL=$NEMOCLAW_MODEL  KEY=${NEMOCLAW_API_KEY:0:6}…"
+```
+
+Vous devriez voir votre URL et votre modèle, ainsi que les premiers caractères de la clé (nous n'affichons pas la clé entière).
+
+## Étape 3 — Vérifiez que l'endpoint fonctionne vraiment
+
+Avant de l'enregistrer, demandez une vraie réponse au modèle, en vous authentifiant avec votre clé :
+
+```bash
+BODY=$(jq -n --arg m "$NEMOCLAW_MODEL" '{model:$m, max_tokens:200, messages:[{role:"user", content:"Reply with exactly: PONG"}]}')
+curl -sS "$NEMOCLAW_INFERENCE_BASE_URL/chat/completions" -H "Authorization: Bearer $NEMOCLAW_API_KEY" \
+  -H "Content-Type: application/json" -d "$BODY" | jq -r '.choices[0].message.content // .error'
+```
+
+`PONG` signifie que **votre endpoint, votre modèle et votre clé sont bons**. (Certains endpoints listent aussi leurs modèles sur `/models` ; un endpoint Models-as-a-Service peut ne pas le faire : une vraie complétion est donc le test fiable.)
+
+Votre agent appelle aussi des **outils** (lancer une commande, lire un fichier, chercher sur le web) : le serveur de modèle doit donc accepter les tool calls :
+
+```bash
+BODY=$(jq -n --arg m "$NEMOCLAW_MODEL" '{model:$m, max_tokens:300, tool_choice:"auto",
+  messages:[{role:"user", content:"What is the weather in Paris? Use the tool."}],
+  tools:[{type:"function", function:{name:"get_weather", parameters:{type:"object", properties:{city:{type:"string"}}, required:["city"]}}}]}')
+curl -sS "$NEMOCLAW_INFERENCE_BASE_URL/chat/completions" -H "Authorization: Bearer $NEMOCLAW_API_KEY" \
+  -H "Content-Type: application/json" -d "$BODY" | jq -r '.choices[0].finish_reason // .error.message // .error'
+```
+
+Vous voulez voir `tool_calls` : le modèle a choisi l'outil au lieu de répondre en texte.
+
+<Callout type="warn" title="En cas d'échec">
+<strong>401 / Unauthorized</strong> → clé erronée ou expirée. <strong>404</strong> → l'URL de base ne devrait probablement pas (ou devrait) se terminer par <code>/v1</code> : suivez la documentation de votre fournisseur. <strong>Erreur de connexion</strong> → vérifiez le nom d'hôte. <strong><code>"auto" tool choice requires --enable-auto-tool-choice…</code></strong> → le serveur de modèle n'accepte pas les tool calls : votre agent ne peut pas fonctionner tant que ce n'est pas le cas (dans un lab animé, prévenez l'animateur). Corrigez <code>.env</code> et relancez les étapes 2 et 3 avant de continuer.
+</Callout>
+
+## Deux éléments : un *profile* et un *provider*
+
+OpenShell découpe l'accès au modèle en deux petits concepts :
+
+- Un **provider profile** est le *contrat d'accès* : vers quel hôte et quel port la clé peut être envoyée, comment elle est envoyée (`auth_style: bearer` → un en-tête `Authorization: Bearer …`), la variable d'environnement qui la porte dans la sandbox (`OPENAI_API_KEY`), et les **binaires** autorisés à faire l'appel (`node`, `curl`). Les profiles sont des gabarits : ils ne contiennent aucun secret.
+- Un **provider** est une *instance* d'un profile qui contient le vrai **secret** (votre clé), stocké côté gateway. Les sandboxes obtiennent l'accès quand le provider leur est **attaché**.
+
+Vous allez donc **importer un profile** (étape 4), **créer un provider** à partir de lui (étape 5), puis l'attacher en créant l'agent (leçon suivante).
+
+## Étape 4 — Importez le provider profile
+
+L'atelier a généré un profile pour *votre* endpoint (son hôte et son port viennent de `NEMOCLAW_INFERENCE_BASE_URL`). Lisez-le d'abord :
+
+```bash
+cat "$NEMOCLAW_INFERENCE_PROFILE"
+```
+
+Repérez `id: maas-openai`, le bloc `credentials` (`env_vars: [OPENAI_API_KEY]`, `auth_style: bearer`), une entrée `endpoints` (votre hôte d'inférence, son port, `protocol: rest`) et la liste `binaries`. Confiez-le maintenant à la gateway : `import` la première fois, `update` s'il existe déjà (la préparation du lab l'a peut-être importé pour vous). Une mise à jour doit porter le `resource_version` courant du profile, qui empêche deux personnes d'écraser mutuellement leurs changements : nous le copions donc depuis un `export` :
+
+```bash
+P="$NEMOCLAW_INFERENCE_PROFILE_ID"
+if openshell provider profile describe "$P" >/dev/null 2>&1; then
+  RV=$(openshell provider profile export "$P" -o json | jq -r .resource_version)
+  sed "/^id:/a resource_version: $RV" "$NEMOCLAW_INFERENCE_PROFILE" > /tmp/profile-update.yaml
+  openshell provider profile update "$P" -f /tmp/profile-update.yaml
+else
+  openshell provider profile import -f "$NEMOCLAW_INFERENCE_PROFILE"
+fi
+```
+
+## Étape 5 — Créez le provider (c'est là que va la clé)
+
+Créez un provider de ce type. Nous passons la clé par l'**environnement** (`--credential OPENAI_API_KEY` sans `=value` la lit dans l'environnement de la CLI) : elle n'apparaît donc jamais dans l'historique de votre shell ni dans la liste des processus. À partir de maintenant, c'est *la gateway* qui détient la clé, ni vous, ni l'agent :
+
+```bash
+openshell provider get "$NEMOCLAW_INFERENCE_PROVIDER" >/dev/null 2>&1 \
+  || OPENAI_API_KEY="$NEMOCLAW_API_KEY" openshell provider create \
+       --name "$NEMOCLAW_INFERENCE_PROVIDER" \
+       --type "$NEMOCLAW_INFERENCE_PROFILE_ID" \
+       --credential OPENAI_API_KEY
+```
+
+Option par option :
+
+- `--name "$NEMOCLAW_INFERENCE_PROVIDER"` : le nom de ce provider (`default`, sauf si vous l'avez changé). Les sandboxes le référencent par son nom.
+- `--type maas-openai` : l'id du profile de l'étape 4. Il décide où la clé peut aller et qui peut l'envoyer.
+- `--credential OPENAI_API_KEY` : **c'est là que va votre clé.** Elle est stockée côté gateway comme secret (*credential*), jamais écrite dans l'agent.
+
+## Étape 6 — Vérifiez
+
+```bash
+openshell provider list
+```
+
+Vous devriez voir votre provider, de type `maas-openai`, avec **une clé de credential**. Seuls les *noms* des clés sont affichés, jamais les valeurs :
+
+```bash
+openshell provider get "$NEMOCLAW_INFERENCE_PROVIDER"
+```
+
+## Sur votre propre déploiement (facultatif)
+
+Inutile dans ce lab. En dehors, mettez vos propres valeurs dans `~/workshop/.env` (`NEMOCLAW_INFERENCE_BASE_URL`, `NEMOCLAW_MODEL`, `NEMOCLAW_API_KEY`) avant l'étape 2.
+
+## Le modifier plus tard
+
+Pour **renouveler la clé** (à titre de référence : lancez cette commande quand vous avez vraiment une nouvelle clé). Les sandboxes attachées reçoivent un placeholder réémis (une nouvelle révision) et l'ancien finit par ne plus être résolu : redémarrez ensuite toute gateway OpenClaw en cours (étape 2 de *Donnez-lui un cerveau*) :
+
+```bash-ref
+OPENAI_API_KEY=<new-key> openshell provider update "$NEMOCLAW_INFERENCE_PROVIDER" --credential OPENAI_API_KEY
+```
+
+Le **modèle** ne fait plus partie du provider : c'est le client qui le choisit (la config d'OpenClaw, dans les leçons suivantes). Pour pointer vers un autre hôte, modifiez le profile et relancez l'étape 4.
+
+<Callout type="rh" title="Cerveau branché, via un provider">
+Endpoint vérifié, profile importé, clé détenue par la gateway. Quand vous construirez l'agent, vous attacherez ce provider avec <code>--provider</code> : la sandbox reçoit une clé placeholder, et le supervisor injecte la vraie à la sortie, uniquement vers votre hôte d'inférence et uniquement depuis <code>node</code>/<code>curl</code>. Passons à la création de l'agent.
+</Callout>

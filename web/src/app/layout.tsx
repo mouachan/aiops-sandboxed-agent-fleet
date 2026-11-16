@@ -2,6 +2,8 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { SiteHeader } from "@/components/SiteHeader";
+import { LangProvider } from "@/lib/lang-client";
+import { getLang } from "@/lib/lang-server";
 
 export const metadata: Metadata = {
   title: "OpenClaw on OpenShift — Red Hat × NVIDIA Workshop",
@@ -12,15 +14,18 @@ export const metadata: Metadata = {
 const inter = Inter({ subsets: ["latin"], weight: ["300", "400", "500", "600", "700", "800"], variable: "--font-inter", display: "swap" });
 const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-jetbrains-mono", display: "swap" });
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const lang = await getLang();
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+    <html lang={lang} className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: `try{document.documentElement.dataset.theme=localStorage.getItem('oclaw-theme')||'dark';}catch(e){}` }} />
       </head>
       <body>
-        <SiteHeader />
-        {children}
+        <LangProvider lang={lang}>
+          <SiteHeader lang={lang} />
+          {children}
+        </LangProvider>
       </body>
     </html>
   );

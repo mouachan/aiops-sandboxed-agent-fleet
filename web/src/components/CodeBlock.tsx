@@ -7,6 +7,7 @@ import json from "highlight.js/lib/languages/json";
 import "highlight.js/styles/github-dark.css";
 import { runInShell, LabShellContext } from "@/lib/labBus";
 import { useIsClient } from "@/lib/clientStore";
+import { useT } from "@/lib/lang-client";
 
 hljs.registerLanguage("bash", bash);
 hljs.registerLanguage("yaml", yaml);
@@ -55,12 +56,13 @@ export function CodeBlock({ children }: { children?: ReactNode }) {
   const lang = getLang(children);
   const [copied, setCopied] = useState(false);
   const hasShell = useContext(LabShellContext);
+  const t = useT();
 
   const isRef = REF_LANGS.includes(lang);
   const isShell = lang === "" || SHELL_LANGS.includes(lang);
   const hasCommand = code.split("\n").some((l) => l.trim() !== "" && !/^\s*#/.test(l));
   const runnable = hasShell && isShell && hasCommand && !isRef; // reference fences are never runnable; no shell on the page → Copy only
-  const label = isRef ? "reference" : (lang || "shell");
+  const label = isRef ? t("reference", "référence") : (lang || "shell");
 
   const grammar = hljsLang(lang);
   // Highlight only once hydrated. The server (and the client's hydration render) emit plain
@@ -82,16 +84,16 @@ export function CodeBlock({ children }: { children?: ReactNode }) {
             <button
               onClick={() => runInShell(code)}
               className="rounded border border-[var(--color-nv-dim)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-nv-bright)] hover:bg-[var(--color-panel)]"
-              title="Run this in the lab shell"
+              title={t("Run this in the lab shell", "Exécuter ceci dans le shell du lab")}
             >
-              ▶ Run in shell
+              ▶ {t("Run in shell", "Exécuter dans le shell")}
             </button>
           )}
           <button
             onClick={() => { navigator.clipboard?.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1400); }}
             className="rounded border border-[var(--color-line-2)] px-2 py-0.5 text-[11px] text-[var(--color-fg-mut)] hover:text-[var(--color-fg)]"
           >
-            {copied ? "Copied ✓" : "Copy"}
+            {copied ? t("Copied ✓", "Copié ✓") : t("Copy", "Copier")}
           </button>
         </div>
       </div>

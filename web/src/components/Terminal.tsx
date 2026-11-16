@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { registerShellSender } from "@/lib/labBus";
 import { PlugZap, RotateCcw, TerminalSquare } from "lucide-react";
+import { useT } from "@/lib/lang-client";
 
 type Status = "idle" | "connecting" | "live" | "closed" | "error";
 
@@ -14,6 +15,7 @@ function xtermTheme() {
 }
 
 export function Terminal({ title = "lab shell", fill = false }: { title?: string; fill?: boolean }) {
+  const t = useT();
   const hostRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [started, setStarted] = useState(false);
@@ -114,7 +116,11 @@ export function Terminal({ title = "lab shell", fill = false }: { title?: string
   }, [started, session]);
 
   const dot = status === "live" ? "#76b900" : status === "error" || status === "closed" ? "#ee0000" : "#8a93a3";
-  const statusLabel = status === "live" ? "connected" : status;
+  const statusLabel = status === "live" ? t("connected", "connecté")
+    : status === "idle" ? t("idle", "inactif")
+    : status === "connecting" ? t("connecting", "connexion")
+    : status === "closed" ? t("closed", "fermé")
+    : t("error", "erreur");
   const reconnect = () => {
     if (!started) setStarted(true);
     else setSession((n) => n + 1);
@@ -138,7 +144,7 @@ export function Terminal({ title = "lab shell", fill = false }: { title?: string
           <button
             onClick={reconnect}
             className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-[var(--color-line-2)] text-[var(--color-fg-mut)] transition hover:bg-[var(--color-bg-2)] hover:text-[var(--color-fg)]"
-            title="Reconnect shell"
+            title={t("Reconnect shell", "Reconnecter le shell")}
           >
             <RotateCcw size={13} />
           </button>
@@ -150,7 +156,7 @@ export function Terminal({ title = "lab shell", fill = false }: { title?: string
             <TerminalSquare size={22} />
           </div>
           <button onClick={() => setStarted(true)} className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-nv-dim)] px-5 py-2.5 text-sm font-semibold text-[var(--color-nv-bright)] transition hover:bg-[var(--color-panel)] hover:shadow-[0_0_0_3px_var(--color-nv-dim)]">
-            <PlugZap size={15} /> Open lab shell
+            <PlugZap size={15} /> {t("Open lab shell", "Ouvrir le shell du lab")}
           </button>
         </div>
       ) : (

@@ -1,0 +1,77 @@
+Les pièges qu'on a rencontrés, pour que vous les évitiez. La plupart sont gérés par le Helm chart ; voici quoi vérifier si quelque chose cloche (lancez les vérifications dans le shell).
+
+## Impossible d'atteindre l'UI de l'agent sur :30789
+L'UI de l'agent est sortie de la sandbox scellée par `openshell forward`, exécuté par le sidecar `openclaw-forward` du pod workshop (votre shell partage son réseau). Vérifiez le pont, et que la gateway OpenClaw tourne dans la sandbox :
+
+```bash
+curl -s -o /dev/null -w "OpenClaw UI: HTTP %{http_code}\n" http://127.0.0.1:30789/
+openshell sandbox exec -n shifty -- sh -c 'tail -3 /sandbox/gateway.log'   # gateway listening?
+```
+
+## Impossible d'atteindre la gateway
+La gateway est un Service interne au cluster, dans votre namespace (pas de Route publique). Vérifiez que le Service existe, que le pod de la gateway tourne et que la CLI pointe dessus :
+
+```bash
+oc -n "$OPENSHELL_NS" get svc openshell
+oc -n "$OPENSHELL_NS" get pods
+openshell gateway list
+openshell status
+openshell sandbox list
+```
+
+Si le pod tourne mais que la gateway ne répond pas, consultez ses logs :
+
+```bash
+oc -n "$OPENSHELL_NS" logs openshell-0 --tail=50
+```
+
+## Une sandbox ne devient jamais Ready (ou affiche Completed)
+Deux causes classiques : elle a été créée **sans `--policy`** (son supervisor attend indéfiniment une policy que la gateway n'a pas), ou sa commande principale **s'est terminée** (par ex. `-- true`), ce qui laisse la sandbox *Completed*. Examinez-la, puis recréez-la correctement :
+
+```bash
+openshell sandbox list
+oc -n "$OPENSHELL_NS" get sandboxes,pods
+```
+
+```bash-ref
+openshell sandbox delete shifty
+openshell sandbox create --name shifty --from "$OPENCLAW_SANDBOX_IMAGE" \
+  --policy ~/workshop/policies/openclaw-sandbox.yaml \
+  --provider "$NEMOCLAW_INFERENCE_PROVIDER" --no-tty --detach -- sleep infinity
+```
+
+## L'agent reçoit un 401 / n'atteint pas le modèle
+L'agent n'atteint votre endpoint que via un **provider attaché**. Vérifiez l'attachement et le provider :
+
+```bash
+openshell sandbox provider list shifty
+openshell provider list
+```
+
+Si rien n'est attaché, attachez-le et attendez que la sandbox l'ait appliqué, puis redémarrez OpenClaw (seuls les *nouveaux* processus reçoivent le placeholder de l'identifiant) :
+
+```bash-ref
+openshell sandbox provider attach shifty "$NEMOCLAW_INFERENCE_PROVIDER" --wait
+```
+
+## Impossible d'atteindre la console OpenShift
+Vérifiez la Route et les pods de la console (dans un lab partagé, la console peut ne pas être proposée ; le workshop masque alors son lien) :
+
+```bash
+oc -n openshift-console get route
+oc -n openshift-console get pods
+```
+
+## OpenClaw demande un appairage d'appareil (device pairing)
+C'est normal : approuvez-le (voir [Appairez votre navigateur](/learn/pairing) dans la Partie IV) :
+
+```bash
+approve-browser
+```
+
+## Le téléchargement des images se bloque ("unexpected EOF")
+Vérifiez la connectivité réseau du cluster : c'est souvent un problème de MTU ou de DNS sur l'infrastructure sous-jacente.
+
+<Callout type="note" title="Le Helm chart est redéployable">
+Le Helm chart est idempotent : corrigez la cause et redéployez pour réconcilier.
+</Callout>

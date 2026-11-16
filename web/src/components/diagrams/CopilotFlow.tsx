@@ -1,4 +1,6 @@
+"use client";
 import { DIAGRAM as C } from "./palette";
+import { useT } from "@/lib/lang-client";
 
 // The Cluster Copilot loop: ask → inspect → propose → approve → act.
 const W = 880, H = 300;
@@ -17,23 +19,24 @@ const Arrow = ({ x1, y1, x2, y2, label }: { x1: number; y1: number; x2: number; 
 );
 
 export function CopilotFlow() {
+  const t = useT();
   return (
     <figure className="my-6 overflow-hidden rounded-xl border border-[var(--color-line)]">
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" fontFamily={C.font} role="img" aria-label="Cluster Copilot loop">
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" fontFamily={C.font} role="img" aria-label={t("Cluster Copilot loop", "Boucle du Cluster Copilot")}>
         <defs><marker id="cf_ar" markerWidth="10" markerHeight="10" refX="7" refY="3.2" orient="auto"><path d="M0,0 L8,3.2 L0,6.4 Z" fill={C.ctrl} /></marker></defs>
         <rect x={0} y={0} width={W} height={H} fill={C.bg} />
-        <Node x={40} y={120} w={150} fill={C.gray} stroke={C.ctrl} title="You 🧑‍💻" sub="ask in plain English" />
-        <Node x={250} y={120} w={170} fill={C.greenTint} stroke={C.nvidia} title="Shifty 🦞" sub="the OpenClaw agent" />
-        <Node x={480} y={40} w={170} fill={C.redTint} stroke={C.redhat} title="OpenShift API" sub="oc / kube API (read)" />
-        <Node x={480} y={196} w={170} fill={C.lav} stroke={C.auth} title="Proposed action" sub="scale / restart / patch" />
-        <Node x={700} y={120} w={150} fill={C.blue} stroke="#6f8fd0" title="You approve ✓" sub="then it acts" />
+        <Node x={40} y={120} w={150} fill={C.gray} stroke={C.ctrl} title={t("You 🧑‍💻", "Vous 🧑‍💻")} sub={t("ask in plain English", "posez votre question")} />
+        <Node x={250} y={120} w={170} fill={C.greenTint} stroke={C.nvidia} title="Shifty 🦞" sub={t("the OpenClaw agent", "l'agent OpenClaw")} />
+        <Node x={480} y={40} w={170} fill={C.redTint} stroke={C.redhat} title="OpenShift API" sub={t("oc / kube API (read)", "oc / kube API (lecture)")} />
+        <Node x={480} y={196} w={170} fill={C.lav} stroke={C.auth} title={t("Proposed action", "Action proposée")} sub="scale / restart / patch" />
+        <Node x={700} y={120} w={150} fill={C.blue} stroke="#6f8fd0" title={t("You approve ✓", "Vous approuvez ✓")} sub={t("then it acts", "puis il agit")} />
         <Arrow x1={190} y1={152} x2={250} y2={152} label="prompt" />
-        <Arrow x1={420} y1={140} x2={480} y2={92} label="inspect" />
+        <Arrow x1={420} y1={140} x2={480} y2={92} label={t("inspect", "inspecte")} />
         <Arrow x1={480} y1={104} x2={420} y2={150} />
-        <Arrow x1={420} y1={166} x2={480} y2={216} label="plan" />
-        <Arrow x1={650} y1={216} x2={700} y2={160} label="confirm?" />
+        <Arrow x1={420} y1={166} x2={480} y2={216} label={t("plan", "planifie")} />
+        <Arrow x1={650} y1={216} x2={700} y2={160} label={t("confirm?", "confirmer ?")} />
         <Arrow x1={700} y1={140} x2={650} y2={92} />
-        <text x={W / 2} y={285} fontSize={11} fill={C.sub} textAnchor="middle">Read freely · propose changes · act only after you approve — guardrails from OpenShift RBAC + OpenShell policy.</text>
+        <text x={W / 2} y={285} fontSize={11} fill={C.sub} textAnchor="middle">{t("Read freely · propose changes · act only after you approve — guardrails from OpenShift RBAC + OpenShell policy.", "Lecture libre · propose des changements · n'agit qu'après votre accord — garde-fous : RBAC OpenShift + policy OpenShell.")}</text>
       </svg>
     </figure>
   );

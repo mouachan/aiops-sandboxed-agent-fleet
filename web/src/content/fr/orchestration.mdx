@@ -1,0 +1,116 @@
+Vous venez de voir la fleet enquêter. Il n'y a rien de magique : c'est un petit orchestrateur intégré à
+ce site même ([`/api/orchestrate`](/learn/incident-lab)), environ 130 lignes. Cette page vous le montre
+**en entier** : le plan, le prompt exact que reçoit chaque agent, la façon dont un agent scellé est invoqué
+et la façon dont l'analyste conclut. Rien n'est caché.
+
+<FleetOrchestration />
+
+## 1 · Un plan fixe, sans appel au modèle pour « planifier »
+
+Beaucoup d'« orchestrateurs d'agents » dépensent un appel au modèle rien que pour décider quoi faire. Pas nous. Le plan est
+**fixe** : une probe prescrite par spécialiste. L'intelligence est dans chaque agent, qui *exécute et
+interprète* sa probe, et dans la synthèse de l'analyste. Les deux passent **par l'accès gouverné de
+l'agent à son propre modèle**, jamais par le site web. Chaque probe est la commande exacte que l'agent exécute :
+
+```ts
+const TQ = "node /sandbox/.agents/skills/cluster-telemetry/tq.js";
+const NS = process.env.DEMO_NAMESPACE;   // your demo namespace — every probe is scoped to it
+function buildProbes() {
+  const ms = Date.now();
+  const range = `&start=${ms - 900000}000000&end=${ms}000000&limit=15`; // last 15 min, newest first (direction=backward)
+  return {
+    metrics: { url: `https://<thanos>:9092/api/v1/query?namespace=${NS}&query=sum by (code) (rate(shop_requests_total{namespace="${NS}"}[2m]))`,
+               hint: "request rate by HTTP code (a 5xx spike is the error rate) + average latency" },
+    logs:    { url: `https://<loki>/api/logs/v1/application/loki/api/v1/query_range?query={kubernetes_namespace_name="${NS}"} |= "error"${range}`,
+               hint: "the app's recent ERROR log lines (e.g. 'checkout failed: payment provider 503')" },
+    events:  { url: `https://<loki>/api/logs/v1/application/loki/api/v1/query_range?query={kubernetes_namespace_name="<openshell ns>",kubernetes_container_name="event-exporter"} |= "reason"${range}`,
+               hint: "recent k8s events in the demo namespace — what CHANGED (a scale-down, a deploy)?" },
+    traces:  { url: `https://<tempo>/api/traces/v1/dev/tempo/api/search?q={ resource.service.name="shop" && resource.k8s.namespace.name="${NS}" && status=error }&limit=10`,
+               hint: "recent ERROR traces — the failing span shows WHERE the request breaks" },
+  };
+}
+```
+
+Chaque probe est **limitée à votre namespace** : le port *tenancy* de Thanos (`9092`) ne répond que pour le `namespace=` que vous passez et vérifie que l'appelant a le droit de le lire, Loki filtre sur `kubernetes_namespace_name`, les events viennent d'un event-exporter dédié à votre namespace de démo, et les traces portent un attribut de ressource `k8s.namespace.name`. Dans un lab partagé, votre fleet ne voit jamais l'incident d'un autre participant.
+
+## 2 · Chaque agent reçoit une sous-tâche directive
+
+Une consigne libre du type « enquête là-dessus » fait divaguer un petit modèle : il lit des fichiers, cherche des outils
+et tourne en boucle jusqu'à saturer son contexte. Chaque spécialiste scellé reçoit donc une sous-tâche **directive** qui
+contient la commande exacte. La boucle de tool calls tient ainsi en ~2 appels (exécuter la probe → rendre compte) et se termine en ~30 s :
+
+```ts
+const subtask =
+ `You are the ${a} specialist of an SRE fleet — read-only, sealed to your one backend.
+  Use ONLY the exec tool. Run this EXACT command and report its output verbatim as your
+  finding (it returns ${p.hint}), then briefly state what it means and STOP. Do not read
+  files, do not use web_fetch or dir_list, and do NOT generate any image.
+
+  Command:
+  ${TQ} '${p.url}'
+
+  Incident: ${task}`;
+```
+
+## 3 · Comment un agent scellé est réellement invoqué
+
+Chaque étape s'exécute **dans la sandbox de l'agent**, via l'agent embarqué d'OpenClaw. Le site web
+n'appelle jamais de modèle : c'est la sandbox qui le fait, via le provider d'inférence qui lui est attaché (clé placeholder, remplacée par le supervisor à l'egress) :
+
+```ts
+// findings are multi-line, and `sandbox exec` rejects newline args → base64 the message in,
+// decode it inside the sandbox.
+const b64 = Buffer.from(subtask, "utf8").toString("base64");
+await openshell(["sandbox", "exec", "-n", agent, "--", "sh", "-c",
+  `openclaw agent --local --json --session-id <uuid> -m "$(printf %s ${b64} | base64 -d)"`]);
+```
+
+La probe elle-même est le **skill cluster-telemetry** (`tq.js`) : il appelle `curl` (un binaire
+autorisé en egress, donc l'appel reste borné par la policy à backend unique de l'agent) et affiche
+un résumé *compact* pour que l'agent reste concentré. Le `web_fetch` d'OpenClaw est bloqué pour les hôtes
+internes : c'est grâce au skill qu'un agent scellé lit `*.svc.cluster.local` sans rien affaiblir.
+
+## 4 · L'analyste conclut
+
+Les enquêteurs travaillent **en parallèle** ; quand tous ont répondu, leurs constats vont à l'agent
+**analyst** (aucun accès à la télémétrie, aucun tool call), qui raisonne dessus en combinant le taux d'erreur,
+les logs d'erreur, le span en échec et *ce qui a changé* d'après les events (`payments` ramené à
+0), pour en tirer une cause racine et un correctif recommandé :
+
+```ts
+const analystPrompt =
+ `You are the incident analyst synthesizing an SRE fleet's findings. Reason ONLY over the
+  findings below — no tools, no files, no image, and do NOT greet or describe yourself.
+  Begin directly with "ROOT CAUSE:" and cite the evidence (error rate, error logs naming the
+  failing dependency, the failing span). CRITICAL: ask "what changed?" — if the events
+  findings name a recent change (a dependency scaled to 0, a recent deploy) that coincides
+  with when the errors began, THAT change is the root cause and the fix is to REVERSE it.
+  Never state a change or an error the findings do not show. Then a FINAL line:
+  RECOMMENDED_ACTION: <the specific reversal, e.g. "scale the payments deployment back up">`;
+```
+
+Toute l'exécution est streamée vers la page en JSON délimité par des retours à la ligne (`plan` → `step start/done` →
+`writer` → `answer`) : c'est pour cela que la timeline, la requête de chaque agent et ses constats
+s'affichent au fur et à mesure. Un event `heartbeat` toutes les 15 s garde la connexion ouverte pendant
+qu'un agent lent réfléchit encore (les load balancers cloud coupent les connexions inactives depuis 60 s).
+
+Les petits modèles sautent ou déforment parfois le tool call. Après chaque réponse d'agent, l'orchestrateur
+vérifie donc que le constat contient la vraie sortie de sa probe (`status=success …` ou `traces=N`) ; sinon,
+il exécute lui-même la même probe (**dans la sandbox de cet agent, à travers sa policy d'egress**) et
+l'utilise comme constat (*verified probe output*), en écartant le texte de l'agent : une réponse sans la
+vraie sortie peut être inventée, par exemple recopier l'exemple de ses instructions. L'analyste raisonne
+alors toujours sur des données réelles, et la timeline vous montre quels constats ont eu besoin de ce
+filet de sécurité.
+
+L'orchestrateur compte aussi ce que les probes ont trouvé : lignes de log d'erreur, traces en erreur, events récents
+et taux de 5xx. Si toutes les probes ont répondu et que tout est à zéro, il déclare lui-même l'app en bonne santé
+(`synthesizedBy: evidence-check`) au lieu d'interroger le modèle, qui sinon prendrait « checkout is failing »
+au pied de la lettre. Dans le cas contraire, l'analyste reçoit ces compteurs avec les constats.
+
+<Callout type="rh" title="Pourquoi c'est construit ainsi">
+Deux contraintes bien réelles ont guidé ces choix : le <code>web_fetch</code> d'OpenClaw refuse les hôtes internes
+(les agents lisent donc leur backend via un skill basé sur <code>curl</code>), et un petit modèle ne tient pas une
+boucle ReAct libre sur une télémétrie volumineuse (chaque agent reçoit donc une seule probe prescrite). Le résultat est
+<strong>fiable et réel</strong> : chaque agent exécute une vraie requête sur son vrai backend, et
+la recommandation de l'analyste vient de l'état réel du cluster. Lisez le code, modifiez-le, faites-le vôtre.
+</Callout>

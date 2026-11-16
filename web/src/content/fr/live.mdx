@@ -1,0 +1,24 @@
+Cette page lit votre **gateway en direct** : la même fleet que celle affichée par `openshell sandbox list`, rendue ici et rafraîchie toutes les quelques secondes. Un moyen rapide de voir ce qui tourne sans passer par le shell.
+
+<LiveOpenShell />
+
+## Ce que vous voyez
+
+- **Gateway OpenShell** : vert/Connectée signifie que le plan de contrôle fonctionne (avec sa version). C'est le Service de la gateway dans votre namespace (<code><Ns which="openshell" /></code>).
+- **Provider d'inférence** : les providers enregistrés dans la gateway (seulement les *noms* des clés, jamais leurs valeurs) et si votre sandbox d'agent (`shifty`) en a un attaché.
+- **Sandboxes** : chaque agent géré par la gateway, par nom, avec sa phase, son état Ready, son nombre de redémarrages et son âge. Votre agent `shifty` apparaît ici une fois construit ; créez-en d'autres en Partie VI et ils apparaîtront aussi.
+- **Cliquez sur une sandbox** pour ouvrir son détail : un flux **Logs / audit** en direct (`openshell logs <name>`, filtrable par source `gateway` / `sandbox` : c'est là qu'apparaissent les décisions allow/deny de l'egress et le handshake JWT) et le YAML de sa **Policy complète** (`openshell policy get <name> --full` : filesystem, processus et règles réseau par binaire). Les mêmes éléments que ceux de la console OpenShell, assemblés dans cette page.
+
+## D'où viennent les données
+
+Le serveur du workshop tourne dans le cluster, il lit donc le cluster directement : aucun composant en plus, aucune UI OpenShell à déployer :
+
+```bash
+oc -n "$OPENSHELL_NS" get sandboxes.agents.x-k8s.io -o json
+```
+
+La page appelle une petite route d'API en lecture seule (`/api/openshell`) qui exécute exactement cette commande (plus le StatefulSet de la gateway pour l'état de santé) et renvoie un JSON allégé. Comme la gateway parle gRPC et que les sandboxes sont de simples objets Kubernetes, *n'importe quelle* interface peut afficher la fleet : la CLI `openshell`, la console compagnon `openshell-ui`, ou un panneau comme celui-ci intégré à vos propres outils.
+
+<Callout type="tip" title="Faites-le vôtre">
+Ce panneau fait ~400 lignes (un composant React + une route d'API). Branchez-le sur des requêtes plus riches (<code>openshell policy get</code> par sandbox, l'audit log, l'egress en direct) pour construire la vue opérateur dont votre fleet a besoin.
+</Callout>

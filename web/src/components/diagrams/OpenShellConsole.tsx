@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useLang, useT } from "@/lib/lang-client";
 
 // A lightweight, faithful mock of the OpenShell Console (github: openshell-ui) — the
 // real web UI for the gateway. It normally signs in with OIDC and talks gRPC through a
@@ -15,14 +16,22 @@ const SANDBOXES = [
   { name: "pod-doctor", phase: "Ready", image: "openclaw-sandbox:2026.8.2", ns: "user07-openshell" },
   { name: "scout", phase: "Provisioning", image: "openclaw-sandbox:2026.8.2", ns: "user07-openshell" },
 ];
-const EGRESS = [
-  { v: "ALLOW", bin: "/usr/bin/oc", host: "kubernetes.default.svc:443", m: "GET /api/v1/pods" },
-  { v: "ALLOW", bin: "/usr/local/bin/node", host: "<your-endpoint>:443", m: "POST /v1/chat (credential injected)" },
-  { v: "DENY", bin: "/usr/bin/curl", host: "evil.example.com:443", m: "CONNECT" },
-  { v: "DENY", bin: "/usr/bin/oc", host: "kubernetes.default.svc:443", m: "DELETE /api/v1/…" },
-];
+
+type T = (en: string, fr: string) => string;
+
+function egress(t: T) {
+  return [
+    { v: "ALLOW", bin: "/usr/bin/oc", host: "kubernetes.default.svc:443", m: "GET /api/v1/pods" },
+    { v: "ALLOW", bin: "/usr/local/bin/node", host: "<your-endpoint>:443", m: t("POST /v1/chat (credential injected)", "POST /v1/chat (identifiant injecté)") },
+    { v: "DENY", bin: "/usr/bin/curl", host: "evil.example.com:443", m: "CONNECT" },
+    { v: "DENY", bin: "/usr/bin/oc", host: "kubernetes.default.svc:443", m: "DELETE /api/v1/…" },
+  ];
+}
 
 export function OpenShellConsole() {
+  const t = useT();
+  const fr = useLang() === "fr";
+  const EGRESS = egress(t);
   const [tab, setTab] = useState<Tab>("Fleet");
   return (
     <figure className="my-6 overflow-hidden rounded-xl border border-[var(--color-line)] bg-[var(--color-panel)]">
@@ -30,18 +39,18 @@ export function OpenShellConsole() {
       <div className="flex items-center gap-2 border-b border-[var(--color-line)] px-3 py-2">
         <span className="h-2.5 w-2.5 rounded-full" style={{ background: NV }} />
         <span className="text-xs font-semibold">OpenShell Console</span>
-        <span className="text-[10px] text-[var(--color-fg-mut)]">— gateway fleet management (mock)</span>
+        <span className="text-[10px] text-[var(--color-fg-mut)]">{t("— gateway fleet management (mock)", "— gestion de la fleet via la gateway (maquette)")}</span>
         <span className="ml-auto rounded bg-[var(--color-bg-2)] px-1.5 py-0.5 text-[10px] text-[var(--color-fg-mut)]">admin · OIDC</span>
       </div>
       {/* tabs */}
       <div className="flex gap-1 border-b border-[var(--color-line)] px-2 pt-2">
-        {TABS.map((t) => (
-          <button key={t} onClick={() => setTab(t)}
+        {TABS.map((k) => (
+          <button key={k} onClick={() => setTab(k)}
             className="rounded-t-md px-3 py-1.5 text-xs font-medium transition"
-            style={{ background: tab === t ? "var(--color-bg-2)" : "transparent",
-                     color: tab === t ? NV : "var(--color-fg-mut)",
-                     borderBottom: tab === t ? `2px solid ${NV}` : "2px solid transparent" }}>
-            {t}
+            style={{ background: tab === k ? "var(--color-bg-2)" : "transparent",
+                     color: tab === k ? NV : "var(--color-fg-mut)",
+                     borderBottom: tab === k ? `2px solid ${NV}` : "2px solid transparent" }}>
+            {k}
           </button>
         ))}
       </div>
@@ -75,11 +84,11 @@ export function OpenShellConsole() {
         )}
         {tab === "Policy" && (
           <div className="space-y-1.5 font-mono text-[11px] text-[var(--color-fg-dim)]">
-            <div className="text-[var(--color-fg-mut)]"># pod-doctor · allowed egress (deny-by-default)</div>
+            <div className="text-[var(--color-fg-mut)]">{t("# pod-doctor · allowed egress (deny-by-default)", "# pod-doctor · egress autorisé (deny-by-default)")}</div>
             <div>✓ /usr/bin/oc → kubernetes.default.svc:443 · GET /api/**, /apis/**</div>
-            <div>✓ /usr/local/bin/node → &lt;your-endpoint&gt;:443 · POST /v1/** (credential injected)</div>
-            <div>✓ /usr/bin/curl → thanos-querier.openshift-monitoring.svc:9092 · GET /api/v1/** (?namespace=your demo ns)</div>
-            <div className="text-[var(--color-fg-mut)]">✗ everything else — blocked</div>
+            <div>{t("✓ /usr/local/bin/node → <your-endpoint>:443 · POST /v1/** (credential injected)", "✓ /usr/local/bin/node → <your-endpoint>:443 · POST /v1/** (identifiant injecté)")}</div>
+            <div>{t("✓ /usr/bin/curl → thanos-querier.openshift-monitoring.svc:9092 · GET /api/v1/** (?namespace=your demo ns)", "✓ /usr/bin/curl → thanos-querier.openshift-monitoring.svc:9092 · GET /api/v1/** (?namespace=votre ns de démo)")}</div>
+            <div className="text-[var(--color-fg-mut)]">{t("✗ everything else — blocked", "✗ tout le reste — bloqué")}</div>
           </div>
         )}
         {tab === "Network" && (
@@ -99,7 +108,9 @@ export function OpenShellConsole() {
         )}
       </div>
       <figcaption className="border-t border-[var(--color-line)] px-3 py-2 text-[11px] text-[var(--color-fg-mut)]">
-        The real console (<code>openshell-ui</code>) adds live PTY terminals, a policy-advisor inbox, and provider management — pointed at any OpenShell gateway over gRPC.
+        {fr
+          ? <>La vraie console (<code>openshell-ui</code>) ajoute des terminaux PTY en direct, une boîte de réception policy-advisor et la gestion des providers — branchée sur n&apos;importe quelle gateway OpenShell en gRPC.</>
+          : <>The real console (<code>openshell-ui</code>) adds live PTY terminals, a policy-advisor inbox, and provider management — pointed at any OpenShell gateway over gRPC.</>}
       </figcaption>
     </figure>
   );

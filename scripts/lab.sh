@@ -33,7 +33,8 @@
 #   ignored when no node carries the label), LAB_SKIP_OBSERVABILITY=1, LAB_DEMO_APP=false,
 #   LAB_HELM_TIMEOUT (15m), LAB_PREPULL_TIMEOUT (1800s), MONITORING_GRAFANA_PASSWORD,
 #   CLUSTER_APPS_DOMAIN, AGENT_SANDBOX_MIGRATE=1, LAB_PORTAL_RESERVED (user01: never handed out by
-#   the portal; space/comma-separated, empty = none).
+#   the portal; space/comma-separated, empty = none), LAB_WORKSHOP_LANG (en | fr: default language
+#   of the lessons; attendees can switch in the header).
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SELF="$HERE/$(basename "${BASH_SOURCE[0]}")"
@@ -220,6 +221,7 @@ deploy_user() {
     warn "[$u] no inference settings — agents start without a model"
     args+=(--set workshop.inference.existingSecret=)
   fi
+  [[ -n "${LAB_WORKSHOP_LANG:-}" ]] && args+=(--set-string "workshop.defaultLang=${LAB_WORKSHOP_LANG}")
   local -a image_args
   mapfile -t image_args < <(nemoclaw_image_args)
 

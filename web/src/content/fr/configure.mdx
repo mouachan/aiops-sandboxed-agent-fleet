@@ -1,0 +1,112 @@
+Votre sandbox tourne, mais elle est vide : pas de modèle, pas d'agent en cours d'exécution. OpenClaw lit sa config dans `~/.openclaw/openclaw.json` (dans la sandbox, `HOME` vaut `/sandbox`). Donnons-lui un modèle et démarrons la **gateway OpenClaw** (sa Control UI + le runtime de l'agent).
+
+## 1. Construisez la config : votre vrai endpoint, une clé placeholder
+
+OpenClaw parle à votre **vrai** endpoint d'inférence (`$NEMOCLAW_INFERENCE_BASE_URL`), mais avec une clé d'API **placeholder**. Quand vous avez attaché le provider (`--provider` dans la leçon précédente), la sandbox a reçu une variable d'environnement `OPENAI_API_KEY`. Sa valeur n'est pas votre clé, mais une référence que le supervisor comprend. Regardons-la depuis l'*intérieur* de la sandbox :
+
+```bash
+PH=$(openshell sandbox exec -n shifty -- sh -c 'printf %s "$OPENAI_API_KEY"')
+echo "inside the sandbox, OPENAI_API_KEY=$PH"
+```
+
+Vous verrez quelque chose comme `openshell:resolve:env:v<revision>_OPENAI_API_KEY` : un placeholder, inutile en dehors de cette sandbox. Notez la **révision** : la gateway réémet le placeholder à chaque changement du provider (une clé renouvelée, par exemple), et l'ancien finit par ne plus être résolu. Nous ne le copions donc pas dans la config d'OpenClaw : la config contient `${OPENAI_API_KEY}`, et OpenClaw y substitue le placeholder courant de la sandbox à chaque démarrage. Nous construisons la config sur l'hôte, puis nous la déposons **dans la sandbox**. Comme l'agent est confiné par Landlock, nous l'écrivons via `openshell sandbox exec` (en base64, car exec n'accepte pas d'arguments sur plusieurs lignes) :
+
+```bash
+cd ~/workshop
+set -a; . .env; set +a
+PW="${OPENCLAW_GATEWAY_PASSWORD:-openclaw}"
+PH=$(openshell sandbox exec -n shifty -- sh -c 'printf %s "$OPENAI_API_KEY"')
+[ -n "$PH" ] || echo "WARNING: OPENAI_API_KEY is empty inside the sandbox — is the provider attached? (openshell sandbox provider list shifty)"
+OC=$(jq -n --arg model "$NEMOCLAW_MODEL" --arg pw "$PW" --arg base "$NEMOCLAW_INFERENCE_BASE_URL" \
+  --argjson cw "${NEMOCLAW_MODEL_CONTEXT_WINDOW:-65536}" '{
+    gateway: { port:30789, auth:{password:$pw}, remote:{ url:"ws://127.0.0.1:30789", password:$pw },
+               trustedProxies:["127.0.0.1/32"],
+               controlUi:{ dangerouslyAllowHostHeaderOriginFallback:true } },
+    update:  { checkOnStart:false },
+    memory:  { search:{ enabled:false } },
+    agents:  { defaults:{ model:{ primary:("custom/"+$model) } } },
+    models:  { providers:{ custom:{ baseUrl:$base,
+               apiKey:"${OPENAI_API_KEY}", api:"openai-completions",
+               models:[{id:$model,name:$model,contextWindow:$cw,maxTokens:4096}] } } }
+  }')
+echo "$OC" | jq .   # <- see exactly what we're about to write
+openshell sandbox exec -n shifty -- sh -c "mkdir -p /sandbox/.openclaw && echo $(printf '%s' "$OC" | base64 -w0) | base64 -d > /sandbox/.openclaw/openclaw.json"
+openshell sandbox exec -n shifty -- openclaw config validate
+```
+
+Ce `echo "$OC" | jq .` affiche exactement le `openclaw.json` que vous déposez. Il ressemble à ceci :
+
+```json
+{
+  "gateway": {
+    "port": 30789, "auth": { "password": "<your gateway password>" },
+    "remote": { "url": "ws://127.0.0.1:30789", "password": "<your gateway password>" },
+    "trustedProxies": [ "127.0.0.1/32" ],
+    "controlUi": { "dangerouslyAllowHostHeaderOriginFallback": true }
+  },
+  "update": { "checkOnStart": false },
+  "memory": { "search": { "enabled": false } },
+  "agents": { "defaults": { "model": { "primary": "custom/<your-model>" } } },
+  "models": {
+    "providers": {
+      "custom": {
+        "baseUrl": "https://<your-endpoint>/v1",
+        "apiKey": "${OPENAI_API_KEY}",
+        "api": "openai-completions",
+        "models": [ { "id": "<your-model>", "name": "<your-model>", "contextWindow": 65536, "maxTokens": 4096 } ]
+      }
+    }
+  }
+}
+```
+
+`Config valid` signifie qu'OpenClaw l'a acceptée. (`update.checkOnStart` et `memory.search` désactivent la vérification des mises à jour d'OpenClaw et ses embeddings OpenAI pour la recherche en mémoire : les deux appelleraient Internet, la policy deny-by-default les bloquerait, et chaque blocage apparaîtrait comme une demande d'accès sur la page **Approvals**.) (`trustedProxies` sert à la leçon suivante : votre navigateur atteint cette UI via `openshell forward`, qui se connecte depuis `127.0.0.1` et transmet les en-têtes forwarded du navigateur. OpenClaw n'accepte ces en-têtes que d'un proxy que vous avez listé, et répond sinon `proxy_attribution_required`.) Deux autres points à noter : `models.providers.custom.baseUrl` est votre **vrai** endpoint, et `apiKey` vaut `${OPENAI_API_KEY}`. Au démarrage, OpenClaw le remplace par le **placeholder** de la sandbox, jamais par votre clé. Quand OpenClaw (`node`) appelle votre endpoint, la requête sort par le proxy d'egress de la sandbox. Le supervisor voit le placeholder dans l'en-tête `Authorization` et le remplace par la vraie clé, parce que le provider profile autorise cette clé à partir vers *cet* hôte, depuis *ce* binaire. Partout ailleurs, le placeholder reste un placeholder.
+
+Vous pouvez voir la règle que le provider a ajoutée à la policy **effective** de la sandbox (votre fichier + les entrées composées par le provider) :
+
+```bash
+openshell policy get shifty --full | grep -B2 -A8 -i "$(echo "$NEMOCLAW_INFERENCE_BASE_URL" | sed -E 's#^[a-z]+://([^/:]+).*#\1#')"
+```
+
+<Callout type="note" title="Pourquoi passer par la gateway, et pas par oc cp">
+L'agent est scellé par <strong>Landlock</strong> : il ne peut écrire que dans <code>/sandbox</code>, <code>/tmp</code> et <code>/var/tmp</code> (les chemins système comme <code>/usr</code> sont en lecture seule, tout le reste est invisible). Un fichier copié dans <code>/workspace</code> lui serait invisible. Et dans un lab partagé, <code>oc cp</code> / <code>oc exec</code> dans les pods renvoie de toute façon Forbidden. En écrivant via <code>openshell sandbox exec</code>, le fichier arrive là où l'agent le voit vraiment. Même isolation, partout.
+</Callout>
+
+## 2. Démarrez (ou redémarrez) la gateway OpenClaw
+
+Jusqu'ici, la sandbox était simplement **au repos** : son processus principal est `sleep infinity`. Nous lançons maintenant **OpenClaw** à l'intérieur, avec la config que vous venez d'écrire, sur le port `30789` (bind LAN pour pouvoir l'exposer ensuite), avec une authentification par mot de passe.
+
+Nous le démarrons avec `setsid` pour qu'il tourne dans sa **propre session** et continue après la fin de cette commande (un simple processus en arrière-plan serait tué à la fin de la session `exec`). La commande arrête d'abord toute gateway en cours, par son nom de processus, `openclaw-gateway`. C'est donc aussi la commande pour **redémarrer** OpenClaw et prendre en compte de futurs changements de config (relancez-la quand vous voulez) :
+
+```bash
+openshell sandbox exec -n shifty -- sh -c \
+  'cd /sandbox && pkill -f "^openclaw-gateway"; sleep 2; pkill -9 -f "^openclaw-gateway"; setsid nohup openclaw gateway run --port 30789 --bind lan --auth password --password '"${PW:-${OPENCLAW_GATEWAY_PASSWORD:-openclaw}}"' --allow-unconfigured >/sandbox/gateway.log 2>&1 < /dev/null & echo $! > gateway.pid; for i in $(seq 1 15); do sed "s/\x1b\[[0-9;]*m//g" /sandbox/gateway.log | grep -qE "\[gateway\] ready" && break; sleep 2; done; sed "s/\x1b\[[0-9;]*m//g" /sandbox/gateway.log | grep -E "\[gateway\] ready"'
+```
+
+<Callout type="note" title="Pourquoi l'arrêter par son nom, et pas avec `gateway restart` ou un fichier PID ?">
+Il <em>existe</em> bien un <code>openclaw gateway restart</code> (et un <code>gateway stop</code>), mais ils gèrent un <strong>service système installé</strong> (systemd/launchd). Cette sandbox est un conteneur minimal sans système d'init : nous lançons donc la gateway nous-mêmes, au premier plan. Un fichier PID n'est pas fiable non plus : OpenClaw renomme son processus <code>openclaw-gateway</code> et peut se relancer sous un <strong>nouveau PID</strong> (c'est le cas après l'installation d'un plugin), et une seconde gateway refuse alors de démarrer sur le même répertoire d'état. Nous filtrons donc sur le début du nom de processus, <code>pkill -f "^openclaw-gateway"</code> : ce motif ne correspond jamais au shell qui exécute cette commande. Une gateway bloquée en plein redémarrage ignore un arrêt normal, d'où le <code>pkill -9</code> deux secondes plus tard.
+</Callout>
+
+La ligne qui compte est **`[gateway] ready`** : la Control UI et la gateway WebSocket de votre agent tournent sur le port `30789`, dans la sandbox scellée. Vous l'exposerez avec `openshell forward` dans la leçon suivante.
+
+<Callout type="note" title="Et le port 30791 ?">
+Vous verrez aussi <code>Browser control listening on http://127.0.0.1:30791</code>. C'est un service auxiliaire <em>distinct</em> qu'OpenClaw démarre toujours pour l'automatisation du navigateur (le relais de l'extension Chrome). Il n'écoute <strong>que sur 127.0.0.1</strong>, dans la sandbox : il n'est donc jamais exposé. Ignorez-le ; votre gateway est celle du <code>:30789</code>. Les lignes <code>security warning</code>, <code>update available</code> et <code>Chrome extension relay</code> sont elles aussi de simples messages sans conséquence.
+</Callout>
+
+## 3. Vérifiez que le cerveau fonctionne
+
+Faites exécuter un tour à l'agent. La gateway OpenClaw que vous venez de démarrer détient l'état de l'agent : le tour passe donc **par elle** (la CLI la trouve sur `gateway.port`, 30789). L'agent envoie son raisonnement à votre endpoint, avec la clé placeholder :
+
+```bash
+openshell sandbox exec -n shifty -- sh -c 'cd /sandbox && openclaw agent --agent main -m "Reply with exactly: PONG" --session-id smoke'
+```
+
+Vous devriez recevoir `PONG`. S'il répond, toute la chaîne fonctionne : l'agent a atteint le modèle **sans jamais détenir votre clé**.
+
+<Callout type="note" title="Pourquoi pas --local">
+<code>openclaw agent --local</code> exécute l'agent en mode embarqué, mais OpenClaw le refuse tant qu'une gateway détient le même répertoire d'état (<em>"A Gateway is running for this state directory … Run without --local"</em>). Sans <code>--local</code>, la CLI cible la gateway sur <code>gateway.port</code> : c'est pourquoi la config fixe <code>port: 30789</code> (la valeur par défaut serait 18789). Les agents de la fleet de la Partie VI ne lancent pas de gateway : eux utilisent donc bien <code>--local</code>.
+</Callout>
+
+<Callout type="rh" title="La frontière de confidentialité, en vrai">
+Cette réponse a fait le trajet suivant : agent (<code>node</code>, qui ne détient que le placeholder) → proxy d'egress de la sandbox → le supervisor vérifie la policy effective (votre endpoint, autorisé pour <code>node</code> par le provider profile) et remplace le placeholder par votre vraie clé → votre endpoint d'inférence → retour. L'agent n'a jamais vu la clé, et la clé ne peut atteindre que l'hôte nommé dans le provider profile. Prochaine étape : ouvrir l'UI dans votre navigateur.
+</Callout>

@@ -1,0 +1,103 @@
+La plateforme tourne déjà : un cluster OpenShift avec la **gateway OpenShell** dessus (Partie II). Place maintenant à la partie intéressante, à la main : **créez votre propre agent.**
+
+Dans OpenShell, un agent est une **sandbox** : un pod que la gateway crée, scelle dans son propre réseau privé et gouverne avec une policy. Vous en demandez une avec `openshell sandbox create`. Nous allons en créer une qui exécute **OpenClaw** (le framework d'agents), une petite étape à la fois.
+
+## Étape 1 — Vérifiez que la gateway écoute
+
+Chaque commande que vous lancez parle à la gateway. Vérifiez d'abord qu'elle répond :
+
+```bash
+openshell status
+```
+
+Vous devez voir `Status: Connected` et une version. L'endpoint est le Service de la gateway dans le cluster (`http://openshell.<namespace>.svc.cluster.local:8080`) : votre shell de lab tourne dans le cluster, il parle donc directement à la gateway, qui n'est volontairement **pas** publiée sur une Route publique. Si elle n'est pas connectée, voir [Dépannage](/learn/troubleshooting).
+
+## Étape 2 — Regardez la policy que vous allez utiliser
+
+OpenShell est **deny-by-default** : une sandbox toute neuve ne peut **rien** joindre sur le réseau. Vous accordez des accès avec un fichier de *policy*. Lisez le modèle fourni dans le dépôt :
+
+```bash
+cd ~/workshop
+cat policies/openclaw-sandbox.yaml
+```
+
+Deux parties comptent. D'abord, le bloc **filesystem/process** : ce que l'agent peut toucher sur le disque et exécuter. Ensuite, `network_policies` : une **map de règles nommées**, chacune indiquant *quel binaire* peut joindre *quel hôte*. Il y a trois règles : `in-cluster-registry` (la registry npm privée du workshop, pour les skills), `npm-registry` (npm public, pour les dépendances des plugins) et `websearch` (DuckDuckGo). Chacune n'ouvre ses hôtes qu'à `node`/`npm`. C'est tout ce qui est accordé : tout ce qui n'est pas listé est refusé.
+
+```yaml
+network_policies:
+  in-cluster-registry:
+    endpoints:
+      - { host: registry.openshell.svc.cluster.local, port: 4873, access: full, protocol: rest, allow_encoded_slash: true }
+    binaries: [ { path: /usr/bin/node }, { path: /usr/local/bin/node }, { path: /usr/bin/npm }, { path: /usr/local/bin/npm } ]
+  websearch:
+    endpoints:
+      - { host: duckduckgo.com, port: 443, access: full }
+      - { host: html.duckduckgo.com, port: 443, access: full }
+      - { host: lite.duckduckgo.com, port: 443, access: full }
+    binaries: [ { path: /usr/bin/node }, { path: /usr/local/bin/node } ]
+```
+
+(Dans un lab partagé, l'hôte de la registry porte *votre* namespace, <code>registry.<Ns which="openshell" />.svc.cluster.local</code> : le workshop le réécrit au démarrage. Le proxy OpenShell ne reconnaît que les noms pleinement qualifiés, c'est donc toujours la forme complète `…svc.cluster.local`.)
+
+<Callout type="note" title="Et l'hôte d'inférence ?">
+Remarquez qu'il n'y a <strong>aucune règle pour votre endpoint d'inférence</strong>. Inutile d'en ajouter une : vous allez <em>attacher le provider</em> créé dans la leçon précédente (<code>--provider</code>). Son provider profile ajoute la règle d'inférence à la policy <em>effective</em> de la sandbox : votre hôte d'inférence, <code>node</code>/<code>curl</code> uniquement, avec la clé injectée à la sortie. Ce fichier ne concerne que les outils propres à l'agent ; vous verrez la règle composée avec <code>openshell policy get shifty --full</code>.
+</Callout>
+
+Cette policy n'a pas besoin d'être modifiée : utilisez-la telle quelle.
+
+## Étape 3 — Créez la sandbox
+
+Une seule commande crée l'agent. Lisons chaque flag, puis lançons-la :
+
+- `--name shifty` — le nom qu'on lui donne.
+- `--from "$OPENCLAW_SANDBOX_IMAGE"` — l'image : la base de sandbox OpenClaw de la communauté (`ghcr.io/ansjindal/openclaw-sandbox:2026.8.2`, OpenClaw **2026.8.2**). Elle contient l'agent `openclaw`, `node` et `curl` (la recherche DuckDuckGo est un plugin séparé, que vous ajoutez dans *Donnez-lui la recherche web*).
+- `--policy …/openclaw-sandbox.yaml` — l'autorisation d'egress de l'étape 2. **Passez toujours une policy** : une sandbox créée sans policy ne devient jamais Ready (son supervisor redemande sans fin à la gateway une policy qui n'existe pas).
+- `--provider "$NEMOCLAW_INFERENCE_PROVIDER"` — attache le provider d'inférence de la leçon précédente. Dans la sandbox, `$OPENAI_API_KEY` sera un **placeholder**, jamais votre clé.
+- `--no-tty` — exécution non interactive, sans terminal attaché.
+- `--detach -- sleep infinity` — le **processus principal** de la sandbox. `sleep infinity` la garde en vie et au repos (une commande qui se termine, comme `true`, laisserait la sandbox en *Completed*), et `--detach` fait rendre la main à `create` dès qu'elle tourne, au lieu d'y attacher votre shell. Nous y démarrerons OpenClaw nous-mêmes dans la leçon suivante.
+
+```bash
+openshell sandbox create --name shifty \
+  --from "$OPENCLAW_SANDBOX_IMAGE" \
+  --policy ~/workshop/policies/openclaw-sandbox.yaml \
+  --provider "$NEMOCLAW_INFERENCE_PROVIDER" \
+  --no-tty --detach -- sleep infinity
+```
+
+La gateway écrit une ressource `Sandbox`, le contrôleur agent-sandbox la transforme en pod, et la gateway démarre un **supervisor** pour elle (le composant qui scelle le réseau, applique votre policy et remplace les placeholders par les vraies clés à l'egress).
+
+Vérifiez que le provider est bien attaché :
+
+```bash
+openshell sandbox provider list shifty
+```
+
+## Étape 4 — Attendez qu'elle soit prête
+
+Listez vos sandboxes :
+
+```bash
+openshell sandbox list
+```
+
+Le conteneur du pod est prêt en quelques secondes, mais la gateway a besoin d'un peu plus de temps, le temps que le supervisor termine son handshake. Le signal fiable « c'est prêt », c'est de pouvoir y exécuter une commande :
+
+```bash
+openshell sandbox exec -n shifty -- echo "supervisor ready"
+```
+
+Quand elle affiche `supervisor ready`, la maison de votre agent est opérationnelle.
+
+Cette commande est passée **par la gateway** (`openshell sandbox exec`) : auditée et soumise à la policy, jamais un `kubectl exec` brut. De la même façon, vous pouvez exécuter n'importe quoi dans la sandbox, y compris la CLI `openclaw` de l'agent (elle est fournie dans l'image) :
+
+```bash
+openshell sandbox exec -n shifty -- openclaw --version
+```
+
+<Callout type="note" title="C'est un pod, dans le même namespace que la gateway">
+<code>oc -n "$OPENSHELL_NS" get pod default--shifty</code> l'affiche comme un pod normal (nommé <code>default--shifty</code> : la gateway préfixe le workspace, <code>default</code>), dans votre namespace <strong><Ns which="openshell" /></strong>, juste à côté de la gateway (les sandboxes ne sont <em>pas</em> dans un namespace séparé). À côté, vous verrez aussi un pod <code>os-supervisor-…</code> : le supervisor que la gateway exécute pour cette sandbox. Mais l'agent tourne dans un <strong>namespace réseau privé</strong>, joignable uniquement via le supervisor : c'est le sceau que vous explorerez dans <a href="/learn/into-the-sandbox">Dans une sandbox</a>.
+</Callout>
+
+<Callout type="rh" title="Ce que vous venez de faire">
+Une seule commande, et la gateway l'a transformée en pod gouverné sur OpenShift : réseau deny-by-default, identité restreinte, votre policy. Prochaine étape : lui donner un cerveau et démarrer OpenClaw.
+</Callout>

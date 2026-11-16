@@ -1,0 +1,109 @@
+Vous connaissez les briques. Maintenant, **manipulez tout le plan de contrôle comme un opérateur** avant de construire pour de vrai : observez-le, gouvernez-le, exposez-le, avec la CLI `openshell`. Nous allons créer une **sandbox jetable**, juste pour expérimenter (pas d'OpenClaw, pas de modèle : ce sera la Partie IV). À la fin, vous aurez touché à chaque brique d'OpenShell. (Tout se passe dans le shell du lab, contre votre gateway live.)
+
+Lancez la sandbox jetable. `--from` choisit l'image de la sandbox : l'image OpenClaw épinglée (`$OPENCLAW_SANDBOX_IMAGE`, déjà tirée sur les nœuds ; ce lab ne lance pas vraiment OpenClaw). `--policy` est obligatoire en pratique : une sandbox sans policy ne devient jamais Ready. `--detach -- sleep infinity` donne à la sandbox un processus principal qui la maintient en vie, et vous rend la main dès qu'elle tourne (une commande qui se termine, comme `true`, laisserait la sandbox *Completed*). `--no-tty` la lance en mode non interactif.
+
+```bash
+openshell sandbox create --name lab --no-tty \
+  --from "$OPENCLAW_SANDBOX_IMAGE" \
+  --policy ~/workshop/policies/openclaw-sandbox.yaml \
+  --detach -- sleep infinity
+```
+
+Listez vos sandboxes :
+
+```bash
+openshell sandbox list
+```
+
+## 1. La gateway est-elle en bonne santé ?
+
+```bash
+openshell status
+```
+
+`Status: Connected` + une version : c'est le plan de contrôle qui répond.
+
+## 2. Inspectez une sandbox
+
+```bash
+openshell sandbox get lab
+```
+
+Notez la **Phase**, la **Policy source** (sandbox ou globale à la gateway) et la **Revision** : chaque changement de policy l'incrémente. La policy effective est affichée directement.
+
+## 3. L'audit trail — `logs`
+
+C'est l'observabilité d'OpenShell : chaque action de la gateway et de la sandbox, structurée. Regardez se dérouler pour de vrai le bootstrap que vous avez étudié :
+
+```bash
+openshell logs lab --source gateway
+```
+
+Vous verrez `Creating sandbox in Kubernetes` et `issued generation-bound gateway sandbox JWT` : l'identité de la sandbox en train d'être émise, le handshake de la leçon d'architecture. Filtrez et suivez le flux :
+
+```bash
+openshell logs lab --source sandbox --level debug
+```
+
+Suivez-le maintenant en direct : cette commande **continue de tourner** et affiche les nouveaux events :
+
+```bash
+openshell logs lab --tail
+```
+
+Quand vous avez fini, appuyez sur <kbd>Ctrl-C</kbd> dans le shell pour arrêter le suivi et reprendre la main (la commande bloque jusque-là).
+
+<Callout type="note" title="C'est le flux destiné au SIEM">
+Chaque entrée est un event de sécurité au format OCSF. En production, vous les envoyez en continu à votre SIEM : chaque allow/deny, chaque changement de policy, chaque exec, attribuable à une sandbox.
+</Callout>
+
+## 4. Gouvernez-la — `policy`
+
+Affichez la policy effective et son historique :
+
+```bash
+openshell policy get lab        # the policy currently in force
+```
+
+```bash
+openshell policy list lab       # revision history, with a status per revision
+```
+
+Chaque changement de policy est une **révision**. Dans l'historique, le **Status** d'une révision vaut `Pending` jusqu'à ce que le supervisor de la sandbox confirme l'avoir chargée ; il passe alors à `Loaded` (une révision plus ancienne devient `Superseded` ; une révision rejetée par le supervisor affiche `Failed`). `policy get` montre toujours la policy *actuellement compilée et en vigueur*. Notre sandbox `lab` a un supervisor actif (son processus principal tourne encore) : vous verrez la première révision passer à `Loaded` en quelques secondes.
+
+`openshell policy` sait aussi faire `set` / `update` (rechargement à chaud de l'egress sur une sandbox en marche, sans redémarrage ; `--wait` bloque jusqu'à ce que le supervisor l'ait chargée). C'est la boucle audit→enforce de la leçon sur les policies, en direct.
+
+## 5. D'où vient la clé du modèle ? — `provider`
+
+```bash
+openshell provider list
+```
+
+Un **provider** est un identifiant que détient la gateway (votre clé d'inférence, un token GitHub, …), typé par un **provider profile** qui indique vers quel hôte il peut être envoyé et quels binaires peuvent l'envoyer. Attachez un provider à une sandbox (`sandbox create --provider …` ou `openshell sandbox provider attach`) : la sandbox ne voit jamais qu'un **placeholder**, et le supervisor y substitue le vrai secret à la sortie (egress) vers l'hôte autorisé. Notre sandbox `lab` n'en a aucun :
+
+```bash
+openshell sandbox provider list lab
+```
+
+C'est exactement ainsi que vous donnerez un modèle à votre propre agent dans la Partie IV, sans jamais lui confier la clé.
+
+## 6. Exposez un port — `forward` / `service`
+
+Si une sandbox sert du HTTP, atteignez-la sans `oc` :
+
+```bash
+openshell service list           # exposed sandbox services
+openshell forward list           # active port-forwards
+```
+
+(Dans *Ouvrez l'UI de l'agent*, vous verrez `openshell forward` à l'œuvre : le sidecar `openclaw-forward` du workshop l'exécute déjà pour exposer la Control UI de votre agent.)
+
+## Nettoyage
+
+```bash
+openshell sandbox delete lab
+```
+
+<Callout type="rh" title="Vous avez piloté tout le plan de contrôle">
+Créer, inspecter, observer (logs/audit), gouverner (policy), distribuer les identifiants (providers), exposer des services : chaque brique d'OpenShell, à la main. <strong>Voilà</strong> la fondation. Ensuite : construire quelque chose par-dessus.
+</Callout>

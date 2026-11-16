@@ -4,6 +4,7 @@ import { Terminal } from "./Terminal";
 import { PanelRightClose, PanelRightOpen, RotateCcw, TerminalSquare } from "lucide-react";
 import { useStoredString } from "@/lib/clientStore";
 import { LabShellContext } from "@/lib/labBus";
+import { useT } from "@/lib/lang-client";
 
 const DEFAULT_PCT = 44;
 const clampPct = (n: number) => Math.min(68, Math.max(26, n));
@@ -16,6 +17,7 @@ export function LabSplit({ children }: { children: ReactNode; slug?: string }) {
 }
 
 function LabSplitInner({ children }: { children: ReactNode }) {
+  const t = useT();
   // % width of the shell column (desktop), remembered across pages
   const [pctRaw, setPctRaw] = useStoredString("oclaw:shell-pct", String(DEFAULT_PCT));
   const savedPct = Number(pctRaw);
@@ -69,7 +71,7 @@ function LabSplitInner({ children }: { children: ReactNode }) {
           {children}
         </div>
         <button onClick={() => setShowManual(true)} className="fixed bottom-4 right-4 z-30 rounded-lg border border-[var(--color-nv-dim)] bg-[var(--color-panel)] px-4 py-2 text-sm font-semibold text-[var(--color-nv-bright)] shadow-[0_8px_24px_rgba(0,0,0,0.22)] transition hover:bg-[var(--color-bg-2)]">
-          <span className="inline-flex items-center gap-2"><PanelRightOpen size={15} /> Show shell</span>
+          <span className="inline-flex items-center gap-2"><PanelRightOpen size={15} /> {t("Show shell", "Afficher le shell")}</span>
         </button>
       </div>
     );
@@ -82,7 +84,7 @@ function LabSplitInner({ children }: { children: ReactNode }) {
       <div
         onMouseDown={startDrag}
         className="group hidden w-3 shrink-0 cursor-col-resize items-stretch justify-center lg:flex"
-        title="Drag to resize the shell"
+        title={t("Drag to resize the shell", "Faites glisser pour redimensionner le shell")}
       >
         <span className="my-2 w-px rounded-full bg-[var(--color-line)] transition-colors group-hover:bg-[var(--color-nv)]" />
       </div>
@@ -92,20 +94,20 @@ function LabSplitInner({ children }: { children: ReactNode }) {
           <div className="mb-2 flex items-center gap-2 rounded-lg border border-[var(--color-line)] bg-[var(--color-panel)] px-2.5 py-2">
             <span className="inline-flex min-w-0 items-center gap-2 text-xs font-semibold text-[var(--color-fg-dim)]">
               <TerminalSquare size={15} className="text-[var(--color-nv-bright)]" />
-              <span className="truncate">Live lab shell</span>
+              <span className="truncate">{t("Live lab shell", "Shell du lab en direct")}</span>
             </span>
             <span className="ml-auto hidden text-[10px] text-[var(--color-fg-mut)] sm:inline">{Math.round(shellPct)}%</span>
             <button
               onClick={() => setShellPct(DEFAULT_PCT)}
               className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--color-line-2)] text-[var(--color-fg-mut)] transition hover:bg-[var(--color-bg-2)] hover:text-[var(--color-fg)]"
-              title="Reset shell width"
+              title={t("Reset shell width", "Réinitialiser la largeur du shell")}
             >
               <RotateCcw size={14} />
             </button>
             <button
               onClick={() => setShowManual(false)}
               className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--color-line-2)] text-[var(--color-fg-mut)] transition hover:bg-[var(--color-bg-2)] hover:text-[var(--color-fg)]"
-              title="Hide shell"
+              title={t("Hide shell", "Masquer le shell")}
             >
               <PanelRightClose size={15} />
             </button>

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Play, Loader2, ListOrdered, CheckCircle2 } from "lucide-react";
 import { streamOrchestrate } from "@/lib/orchestrateStream";
 import { useLabEnv } from "@/lib/useLabEnv";
+import { useT } from "@/lib/lang-client";
 
 const taskFor = (ns: string) => `The 'shop' deployment in namespace ${ns} is unhealthy — investigate with logs and metrics, and report the root cause.`;
 
@@ -14,6 +15,7 @@ type TL = { agent: string; status: "queued" | "running" | "done"; ms?: number; r
 // Streams a LIVE TIMELINE of each agent so you watch it happen (and long runs never time out).
 export function Orchestrator() {
   const lab = useLabEnv();
+  const t = useT();
   // null = untouched → the default task follows this instance's demo namespace (from /api/lab)
   const [edited, setEdited] = useState<string | null>(null);
   const task = edited ?? taskFor(lab.demoNamespace);
@@ -38,7 +40,7 @@ export function Orchestrator() {
         else if (e.type === "writer" && e.status === "start") setTimeline((tl) => [...tl, { agent: "writer", status: "running" }]);
         else if (e.type === "writer" && e.status === "retry") setTimeline((tl) => tl.map((x) => x.agent === "writer" ? { ...x, retried: true } : x));
         else if (e.type === "answer") { setTimeline((tl) => tl.map((x) => x.agent === "writer" ? { ...x, status: "done", ms: e.ms } : x)); setAnswer({ text: e.answer || "", by: e.synthesizedBy }); }
-        else if (e.type === "error") setErr(e.error || "failed");
+        else if (e.type === "error") setErr(e.error || t("failed", "échec"));
       });
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
     setBusy(false);
@@ -46,13 +48,13 @@ export function Orchestrator() {
 
   return (
     <div className="my-6 rounded-xl border border-[var(--color-line)] bg-[var(--color-panel)] p-4">
-      <div className="flex items-center gap-2 text-sm font-semibold text-[var(--color-nv-bright)]"><ListOrdered size={15} /> Orchestrate the fleet</div>
+      <div className="flex items-center gap-2 text-sm font-semibold text-[var(--color-nv-bright)]"><ListOrdered size={15} /> {t("Orchestrate the fleet", "Orchestrez la fleet")}</div>
       <textarea value={task} onChange={(e) => setEdited(e.target.value)} rows={2}
         className="mt-3 w-full rounded-lg border border-[var(--color-line-2)] bg-[var(--color-bg)] p-2.5 text-sm" />
       <div className="mt-2 flex items-center gap-3">
         <button onClick={run} disabled={busy}
           className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-nv)] px-4 py-2 text-sm font-semibold text-[#06080b] hover:bg-[var(--color-nv-bright)] disabled:opacity-50">
-          {busy ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />} {busy ? "Running…" : "Run"}
+          {busy ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />} {busy ? t("Running…", "En cours…") : t("Run", "Lancer")}
         </button>
         {fleet.length > 0 && <span className="text-xs text-[var(--color-fg-mut)]">fleet: {fleet.join(", ")}</span>}
       </div>
@@ -61,13 +63,13 @@ export function Orchestrator() {
 
       {timeline.length > 0 && (
         <div className="mt-3 rounded-lg border border-[var(--color-line)] p-2">
-          <div className="text-xs font-semibold text-[var(--color-fg-mut)]">TIMELINE</div>
+          <div className="text-xs font-semibold text-[var(--color-fg-mut)]">{t("TIMELINE", "CHRONOLOGIE")}</div>
           <div className="mt-1 space-y-0.5 text-xs">
             {timeline.map((x) => (
               <div key={x.agent} className="flex items-center gap-2">
                 {x.status === "done" ? <CheckCircle2 size={12} className="text-[var(--color-nv-bright)]" /> : <Loader2 size={12} className="animate-spin text-[var(--color-fg-mut)]" />}
-                <span className="font-semibold">{x.agent === "writer" ? "🧠 analyst (concludes)" : `🦞 ${x.agent}`}</span>
-                <span className="text-[var(--color-fg-mut)]">{x.status === "done" ? `${((x.ms || 0) / 1000).toFixed(1)}s` : x.status}{x.retried ? " · retried" : ""}</span>
+                <span className="font-semibold">{x.agent === "writer" ? t("🧠 analyst (concludes)", "🧠 analyst (conclut)") : `🦞 ${x.agent}`}</span>
+                <span className="text-[var(--color-fg-mut)]">{x.status === "done" ? `${((x.ms || 0) / 1000).toFixed(1)}s` : x.status}{x.retried ? t(" · retried", " · réessayé") : ""}</span>
               </div>
             ))}
           </div>
@@ -90,7 +92,7 @@ export function Orchestrator() {
       ))}
       {answer && (
         <div className="mt-2 rounded-lg border border-[var(--color-nv-dim)] bg-[var(--color-bg)] p-3 text-sm">
-          <div className="text-xs font-semibold text-[var(--color-fg-mut)]">{answer.by === "analyst" ? "🧠 ANALYST — combined root cause & fix" : answer.by === "evidence-check" ? "EVIDENCE CHECK — no fault found in the telemetry" : "SYNTHESIZED ANSWER"}</div>
+          <div className="text-xs font-semibold text-[var(--color-fg-mut)]">{answer.by === "analyst" ? t("🧠 ANALYST — combined root cause & fix", "🧠 ANALYST — cause racine et correctif combinés") : answer.by === "evidence-check" ? t("EVIDENCE CHECK — no fault found in the telemetry", "VÉRIFICATION DES PREUVES — aucune panne trouvée dans la télémétrie") : t("SYNTHESIZED ANSWER", "RÉPONSE SYNTHÉTISÉE")}</div>
           <pre className="mt-1 whitespace-pre-wrap break-words text-sm">{answer.text}</pre>
         </div>
       )}

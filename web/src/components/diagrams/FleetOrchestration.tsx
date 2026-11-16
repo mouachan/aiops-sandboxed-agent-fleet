@@ -1,4 +1,6 @@
+"use client";
 import { DIAGRAM as C } from "./palette";
+import { useT } from "@/lib/lang-client";
 
 // Part VI capstone: the in-page orchestrator runs a FIXED plan (no model call to plan) — it
 // hands each sealed telemetry SPECIALIST (logs/metrics/traces/events — each with egress to ONE
@@ -21,18 +23,19 @@ const Arrow = ({ x1, y1, x2, y2, label, color, dash, lx, ly, marker }: { x1: num
 );
 
 export function FleetOrchestration() {
+  const t = useT();
   const ax = 470, aw = 220;                       // telemetry agent cards
   const agents = [
-    { y: 48, role: "logs 🔎", egress: "Loki only" },
-    { y: 138, role: "metrics 📈", egress: "Prometheus only" },
-    { y: 228, role: "traces 🧵", egress: "Tempo only" },
+    { y: 48, role: "logs 🔎", egress: t("Loki only", "Loki uniquement") },
+    { y: 138, role: "metrics 📈", egress: t("Prometheus only", "Prometheus uniquement") },
+    { y: 228, role: "traces 🧵", egress: t("Tempo only", "Tempo uniquement") },
     { y: 318, role: "events 🛎️", egress: "k8s events (Loki)" },
   ];
   const wx = 762, wy = 150, ww = 196, wh = 150;   // analyst agent
 
   return (
     <figure className="my-6 overflow-hidden rounded-xl border border-[var(--color-line)] bg-[var(--color-panel)]">
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" fontFamily={C.font} role="img" aria-label="SRE copilot fleet orchestration">
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" fontFamily={C.font} role="img" aria-label={t("SRE copilot fleet orchestration", "Orchestration de la fleet de copilotes SRE")}>
         <style>{`
           .fo-surface{fill:var(--color-panel);} .fo-card{fill:var(--color-bg-2);}
           .fo-ink{fill:var(--color-fg);} .fo-sub{fill:var(--color-fg-mut);}
@@ -50,19 +53,19 @@ export function FleetOrchestration() {
         <rect x={184} y={36} width={240} height={398} rx={12} className="fo-lane" />
         <rect x={446} y={36} width={278} height={398} rx={12} className="fo-lane" />
         <rect x={744} y={36} width={224} height={398} rx={12} className="fo-lane" />
-        <text x={87} y={26} fontSize={10.5} className="fo-phase" textAnchor="middle" fontWeight={800}>① ASK</text>
-        <text x={304} y={26} fontSize={10.5} className="fo-phase" textAnchor="middle" fontWeight={800}>② ORCHESTRATE</text>
-        <text x={585} y={26} fontSize={10.5} className="fo-phase" textAnchor="middle" fontWeight={800}>③ INVESTIGATE (parallel)</text>
-        <text x={856} y={26} fontSize={10.5} className="fo-phase" textAnchor="middle" fontWeight={800}>④ CONCLUDE</text>
+        <text x={87} y={26} fontSize={10.5} className="fo-phase" textAnchor="middle" fontWeight={800}>{t("① ASK", "① DEMANDER")}</text>
+        <text x={304} y={26} fontSize={10.5} className="fo-phase" textAnchor="middle" fontWeight={800}>{t("② ORCHESTRATE", "② ORCHESTRER")}</text>
+        <text x={585} y={26} fontSize={10.5} className="fo-phase" textAnchor="middle" fontWeight={800}>{t("③ INVESTIGATE (parallel)", "③ ENQUÊTER (en parallèle)")}</text>
+        <text x={856} y={26} fontSize={10.5} className="fo-phase" textAnchor="middle" fontWeight={800}>{t("④ CONCLUDE", "④ CONCLURE")}</text>
 
         {/* ask */}
-        <Node x={24} y={196} w={140} cls="fo-card" stroke={C.ctrl} title="You / an app 🧑‍💻" sub="one incident" />
-        <Arrow x1={164} y1={224} x2={204} y2={224} label="task" color={CYAN} marker="fa_v" />
+        <Node x={24} y={196} w={140} cls="fo-card" stroke={C.ctrl} title={t("You / an app 🧑‍💻", "Vous / une app 🧑‍💻")} sub={t("one incident", "un incident")} />
+        <Arrow x1={164} y1={224} x2={204} y2={224} label={t("task", "tâche")} color={CYAN} marker="fa_v" />
 
         {/* orchestrate — a FIXED plan (no model call to plan); each agent gets a prescribed probe */}
-        <Node x={204} y={188} w={160} h={72} cls="fo-violet" stroke={VIOLET} title="Orchestrator" sub="fixed plan · one probe each" />
-        <text x={284} y={300} fontSize={9} className="fo-sub" textAnchor="middle">no model call here —</text>
-        <text x={284} y={313} fontSize={9} className="fo-sub" textAnchor="middle">agents do the inference</text>
+        <Node x={204} y={188} w={160} h={72} cls="fo-violet" stroke={VIOLET} title={t("Orchestrator", "Orchestrateur")} sub={t("fixed plan · one probe each", "plan fixe · un probe chacun")} />
+        <text x={284} y={300} fontSize={9} className="fo-sub" textAnchor="middle">{t("no model call here —", "pas d'appel au modèle ici —")}</text>
+        <text x={284} y={313} fontSize={9} className="fo-sub" textAnchor="middle">{t("agents do the inference", "les agents font l'inférence")}</text>
 
         {/* investigate — 4 sealed telemetry agents, each its own backend */}
         {agents.map((a, i) => {
@@ -71,20 +74,20 @@ export function FleetOrchestration() {
             <g key={i}>
               <Node x={ax} y={a.y} w={aw} cls="fo-green" stroke={C.nvidia} title={a.role} sub={a.egress} />
               <Arrow x1={364} y1={224} x2={ax} y2={cy} label={i === 0 ? "probe" : undefined} color={GREEN} marker="fa_g" lx={ax - 50} ly={a.y + 6} />
-              <Arrow x1={ax + aw} y1={cy} x2={wx} y2={wy + 34 + i * 9} label={i === 0 ? "findings" : undefined} color={C.sub} marker="fa_s" dash lx={wx - 28} ly={a.y + 6} />
+              <Arrow x1={ax + aw} y1={cy} x2={wx} y2={wy + 34 + i * 9} label={i === 0 ? t("findings", "résultats") : undefined} color={C.sub} marker="fa_s" dash lx={wx - 28} ly={a.y + 6} />
             </g>
           );
         })}
 
         {/* conclude — the no-egress analyst */}
-        <Node x={wx} y={wy} w={ww} h={wh} cls="fo-amber" stroke={AMBER} title="analyst 🧠" sub="no telemetry access · concludes" />
-        <text x={wx + ww / 2} y={wy + 92} fontSize={9.4} className="fo-sub" textAnchor="middle">→ root cause</text>
-        <text x={wx + ww / 2} y={wy + 108} fontSize={9.4} className="fo-sub" textAnchor="middle">→ recommended fix</text>
+        <Node x={wx} y={wy} w={ww} h={wh} cls="fo-amber" stroke={AMBER} title="analyst 🧠" sub={t("no telemetry access · concludes", "sans accès télémétrie · conclut")} />
+        <text x={wx + ww / 2} y={wy + 92} fontSize={9.4} className="fo-sub" textAnchor="middle">{t("→ root cause", "→ cause racine")}</text>
+        <text x={wx + ww / 2} y={wy + 108} fontSize={9.4} className="fo-sub" textAnchor="middle">{t("→ recommended fix", "→ correctif recommandé")}</text>
         {/* analyst's verdict back to the human */}
         <Arrow x1={wx + ww / 2} y1={wy + wh} x2={wx + ww / 2} y2={wy + wh + 34} color={AMBER} marker="fa_a" />
-        <text x={wx + ww / 2} y={wy + wh + 50} fontSize={9.6} className="fo-ink" textAnchor="middle" fontWeight={700}>root cause + fix → you approve ✋</text>
+        <text x={wx + ww / 2} y={wy + wh + 50} fontSize={9.6} className="fo-ink" textAnchor="middle" fontWeight={700}>{t("root cause + fix → you approve ✋", "cause + correctif → vous approuvez ✋")}</text>
 
-        <text x={W / 2} y={H - 14} fontSize={10.3} className="fo-sub" textAnchor="middle">Four sealed specialists read one backend each; a no-egress analyst concludes the root cause — every step governed and audited.</text>
+        <text x={W / 2} y={H - 14} fontSize={10.3} className="fo-sub" textAnchor="middle">{t("Four sealed specialists read one backend each; a no-egress analyst concludes the root cause — every step governed and audited.", "Quatre spécialistes scellés lisent chacun un backend ; un analyste sans egress conclut sur la cause racine — chaque étape est gouvernée et auditée.")}</text>
       </svg>
     </figure>
   );
