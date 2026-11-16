@@ -1,55 +1,55 @@
-Votre navigateur est appairé et votre agent a un modèle. Place à la conversation, en regardant la plateforme que vous avez construite faire son travail en coulisses.
+Votre navigateur est appairé et votre agent est branché sur un modèle. Il est temps de lui parler, tout en observant la plateforme que vous avez construite travailler en coulisses.
 
-## Dites bonjour
+## Premier échange
 
-Dans la Control UI d'OpenClaw (l'onglet ouvert dans *Ouvrez l'UI de l'agent*), utilisez la zone de chat :
+Dans la Control UI d'OpenClaw (l'onglet ouvert au chapitre « Ouvrir l'interface de l'agent »), saisissez dans la zone de chat :
 
-> Bonjour ! Qui êtes-vous, et sur quel cluster tournez-vous ?
+> Hi! Who are you, and what cluster are you running on?
 
-Il répond à partir de son **identité** (les fichiers `.md` du workspace, que vous modifierez dans *Identité et soul*) avec le modèle que vous avez configuré. Chaque réponse est un aller-retour vers votre endpoint d'inférence : la requête sort par le proxy d'egress de la sandbox, où le supervisor remplace le placeholder `OPENAI_API_KEY` par votre vraie clé, en route vers le seul hôte autorisé par le provider.
+L'agent répond en s'appuyant sur son **identité** (les fichiers `.md` du workspace, que vous modifierez au chapitre « Identité et personnalité »), avec le modèle que vous avez configuré. Chaque réponse implique un aller-retour vers votre endpoint d'inférence : la requête sort par le proxy d'egress de la sandbox, où le supervisor remplace le placeholder `OPENAI_API_KEY` par votre vraie clé, en direction du seul hôte autorisé par le provider.
 
-## Observez-le depuis le shell
+## L'observer depuis le shell
 
-Pendant que vous discutez, suivez le log de la gateway de l'agent : vous verrez les tours, les tool calls et les requêtes au modèle en temps réel :
+Pendant la conversation, affichez la fin du log de la gateway de l'agent : vous y verrez en temps réel les tours de conversation, les tool calls et les requêtes envoyées au modèle.
 
 ```bash
 openshell sandbox exec -n shifty -- sh -c 'tail -n 20 /sandbox/gateway.log'
 ```
 
-Et vérifiez ce que l'agent a le droit de joindre, avec la policy deny-by-default en vigueur :
+Vérifiez aussi ce que l'agent a le droit de joindre, c'est-à-dire la policy deny-by-default en vigueur :
 
 ```bash
 openshell policy get shifty --full
 ```
 
-Tout ce qu'il peut toucher sur le réseau est là. Demandez-lui de récupérer un site web au hasard : il ne peut tout simplement pas, cet egress n'est pas dans la policy. C'est la garantie : l'agent fait ce que vous voulez, et *uniquement* ce que vous avez autorisé.
+Tout ce que l'agent peut atteindre sur le réseau figure dans cette sortie. Demandez-lui de récupérer un site web quelconque : il en est tout simplement incapable, car cet egress n'est pas prévu dans la policy. Vous avez ainsi la garantie que l'agent fait ce que vous lui demandez, et *uniquement* ce que vous avez autorisé.
 
-## Essayez une vraie tâche
+## Lui confier une vraie tâche
 
-Donnez-lui quelque chose de concret à faire (il dispose d'un shell et d'outils dans sa sandbox) :
+Donnez-lui un travail concret (il dispose d'un shell et d'outils dans sa sandbox) :
 
-> Utilisez votre outil write pour créer le fichier /sandbox/haiku.txt contenant un haïku sur Kubernetes. Puis utilisez votre outil read pour me relire /sandbox/haiku.txt.
+> Use your write tool to create the file /sandbox/haiku.txt containing a haiku about Kubernetes. Then use your read tool to read /sandbox/haiku.txt back to me.
 
-Vous préférez le terminal ? Envoyez la même tâche via la gateway de l'agent :
+Vous préférez le terminal ? Envoyez la même tâche par la gateway de l'agent :
 
 ```bash
 openshell sandbox exec -n shifty -- sh -c 'cd /sandbox && openclaw agent --agent main --session-id haiku -m "Use your write tool to create the file /sandbox/haiku.txt containing a haiku about Kubernetes. Then use your read tool to read /sandbox/haiku.txt back to me."'
 ```
 
-Vérifiez ensuite depuis l'extérieur qu'il a bien écrit le fichier dans son espace scellé :
+Vérifiez ensuite, depuis l'extérieur, que le fichier a bien été écrit dans son espace isolé :
 
 ```bash
 openshell sandbox exec -n shifty -- cat /sandbox/haiku.txt
 ```
 
-Si `cat` répond *No such file*, le modèle a répondu dans le chat sans appeler son outil write ; les petits modèles le font parfois. Renvoyez la tâche : c'est le fait de nommer l'outil (« utilisez votre outil write ») qui rend la chose fiable.
+Si `cat` renvoie *No such file*, le modèle a répondu dans le chat sans appeler son outil write, ce qui arrive parfois avec les petits modèles. Renvoyez la tâche : c'est en nommant explicitement l'outil (« use your write tool ») que vous obtenez un résultat fiable.
 
-L'agent a agi dans sa sandbox ; vous l'avez observé depuis le plan de contrôle. Cette séparation (l'agent dans une boîte scellée, vous qui tenez les clés) est tout l'enjeu.
+L'agent a agi dans sa sandbox, et vous l'avez observé depuis le control plane (plan de contrôle). Tout l'intérêt est là : l'agent travaille dans un espace isolé, et c'est vous qui gardez les clés.
 
-<Callout type="tip" title="Si une réponse se bloque">
-Vérifiez la config du modèle et que l'egress est autorisé : <code>openshell sandbox exec -n shifty -- openclaw config get models.providers.custom</code> et <code>openshell logs shifty --tail</code>. Une requête bloquée apparaît comme un egress refusé dans l'audit log : c'est la policy qui fait son travail, pas un bug.
+<Callout type="tip" title="Si une réponse n'arrive pas">
+Vérifiez la configuration du modèle et l'autorisation de l'egress : <code>openshell sandbox exec -n shifty -- openclaw config get models.providers.custom</code> et <code>openshell logs shifty --tail</code>. Une requête bloquée apparaît comme un egress refusé dans l'audit log : ce n'est pas un bug, c'est la policy qui fait son travail.
 </Callout>
 
-<Callout type="rh" title="Vous avez un agent fonctionnel">
-Créé via la gateway, scellé, gouverné par une policy, adossé à un modèle et qui discute dans votre navigateur : entièrement de votre main, sur un vrai OpenShift. Maintenant, faites-en <em>le vôtre</em> : identité, soul, et le plan de contrôle qui le fait tourner.
+<Callout type="rh" title="Votre agent est opérationnel">
+Créé par la gateway, isolé, soumis à une policy, branché sur un modèle et accessible dans votre navigateur : vous l'avez entièrement mis en place vous-même, sur un vrai cluster OpenShift. Il ne vous reste plus qu'à vous l'<em>approprier</em> : identité, personnalité, et le control plane qui le fait tourner.
 </Callout>

@@ -1,8 +1,8 @@
-Le Helm chart a tout déployé sur un vrai **cluster OpenShift**, pour que vous passiez votre temps sur l'agent et pas sur l'infrastructure. Cette leçon montre ce qui tourne et vous permet de l'explorer en direct.
+Le Helm chart a tout déployé sur un véritable **cluster OpenShift** : vous pouvez ainsi consacrer votre temps à l'agent plutôt qu'à l'infrastructure. Ce chapitre présente ce qui tourne sur le cluster et vous permet de l'explorer en direct.
 
-## Ce qu'il y a dessous
+## L'infrastructure sous-jacente
 
-Le cluster, c'est **Red Hat OpenShift** : du Kubernetes d'entreprise avec les Routes, les SecurityContextConstraints et la CLI `oc` intégrés. Le Helm chart a installé la gateway OpenShell et ses dépendances dans ce cluster ; vos agents y tourneront sous forme de pods gouvernés.
+Le cluster repose sur **Red Hat OpenShift**, la distribution Kubernetes d'entreprise qui intègre notamment les Routes, les SecurityContextConstraints et la CLI `oc`. Le Helm chart y a installé la gateway OpenShell et ses dépendances ; vos agents s'y exécuteront sous forme de pods encadrés par des policies.
 
 ```text
 OpenShift cluster
@@ -14,44 +14,44 @@ OpenShift cluster
 └── monitoring namespace             ← Grafana (dashboards)
 ```
 
-Vos deux namespaces sont <code><Ns which="openshell" /></code> et <code><Ns which="demo" /></code> (`openshell` et `demo` sur un cluster mono-utilisateur ; une paire par participant dans un lab partagé). Dans le shell du lab, ce sont `$OPENSHELL_NS` et `$DEMO_NS`.
+Vos deux namespaces sont <code><Ns which="openshell" /></code> et <code><Ns which="demo" /></code> (`openshell` et `demo` sur un cluster mono-utilisateur ; une paire par participant dans un lab partagé). Dans le shell du lab, ils correspondent aux variables `$OPENSHELL_NS` et `$DEMO_NS`.
 
-## Inspectez-le en direct
+## L'explorer en direct
 
-Dans votre shell de lab, `oc` pointe déjà sur le cluster. Vérifiez que les nœuds sont opérationnels :
+Dans le shell du lab, `oc` est déjà connecté au cluster. Vérifiez que les nœuds sont opérationnels :
 
 ```bash
 oc get nodes
 ```
 
-Des nœuds `Ready` = votre cluster. Regardez maintenant ce qui est déjà déployé pour vous :
+Les nœuds à l'état `Ready` constituent votre cluster. Regardez maintenant ce qui a déjà été déployé pour vous :
 
 ```bash
 oc get project "$OPENSHELL_NS" "$DEMO_NS"
 oc -n "$OPENSHELL_NS" get pods
 ```
 
-Vous verrez votre namespace avec la **gateway** (`openshell-0`) en marche (c'est le plan de contrôle des agents utilisé dans tout le reste du workshop), plus le registry de skills et le pod de ce workshop. Vous verrez peut-être aussi un pod d'agent comme `default--shifty` s'il a déjà été créé ; sinon, c'est *vous* qui créerez le vôtre en pratique dans la **Partie IV**.
+Votre namespace contient la **gateway** (`openshell-0`), en cours d'exécution : c'est le control plane des agents, utilisé dans toute la suite de l'atelier. S'y ajoutent le registry de skills et le pod workshop, qui sert ce site. Un pod d'agent comme `default--shifty` peut aussi apparaître s'il a déjà été créé ; sinon, c'est *vous* qui créerez le vôtre dans la **partie IV**.
 
-C'est bien OpenShift : vérifiez une API propre à OpenShift :
+Il s'agit bien d'OpenShift : vérifiez la présence d'API propres à OpenShift.
 
 ```bash
 oc get scc --no-headers | head -5
 oc api-resources | grep -iE "route.openshift.io|security.openshift.io" | head
 ```
 
-`SecurityContextConstraints` et `route.openshift.io` sont des extensions OpenShift qu'un cluster Kubernetes standard n'a pas. C'est la couche Red Hat sur laquelle tournent vos agents.
+`SecurityContextConstraints` et `route.openshift.io` sont des extensions d'OpenShift, absentes d'un cluster Kubernetes standard. C'est la couche Red Hat sur laquelle s'exécutent vos agents.
 
-Vérifiez les Routes que le Helm chart a créées dans votre namespace : c'est par elles que votre navigateur atteint ce workshop et l'UI de votre agent :
+Affichez les Routes créées par le Helm chart dans votre namespace : c'est par elles que votre navigateur accède à ce site et à l'interface de votre agent.
 
 ```bash
 oc get routes -n "$OPENSHELL_NS"
 ```
 
-<Callout type="tip" title="Des Routes, pas des NodePorts">
-Les Routes OpenShift donnent à chaque service un vrai nom d'hôte avec terminaison TLS, sans bricolage de port-forwarding. Ce workshop, la Control UI de votre agent et Grafana sont joignables via les URL de leurs Routes. La gateway OpenShell elle-même n'est volontairement <em>pas</em> exposée par une Route : elle n'est joignable que depuis l'intérieur du cluster.
+<Callout type="tip" title="Des Routes plutôt que des NodePorts">
+Les Routes OpenShift attribuent à chaque service un vrai nom d'hôte, avec terminaison TLS, sans bricolage à base de port-forwarding. Ce site, la Control UI de votre agent et Grafana sont accessibles par l'URL de leur Route. La gateway OpenShell, elle, n'est volontairement <em>pas</em> exposée par une Route : elle n'est joignable que depuis l'intérieur du cluster.
 </Callout>
 
-<Callout type="rh" title="La base est en place">
-Un vrai cluster OpenShift, pré-construit et Ready. Tout ce qui suit (la gateway, l'agent) repose dessus. Ensuite : la gateway OpenShell, qui transforme ce cluster en plateforme d'agents.
+<Callout type="rh" title="Les fondations sont en place">
+Un vrai cluster OpenShift, préinstallé et à l'état Ready. Tout ce qui suit, la gateway comme l'agent, repose sur lui. Au chapitre suivant : la gateway OpenShell, qui transforme ce cluster en plateforme d'agents.
 </Callout>

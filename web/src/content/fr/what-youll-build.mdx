@@ -1,29 +1,29 @@
-Vous avez construit un agent scellé, vous lui avez donné un cerveau, des skills issus de votre propre registry et une soul. Le capstone en fait un **système** : une **fleet de copilotes SRE**, plusieurs agents qui possèdent chacun *un* outil d'observabilité et *rien d'autre*, réunis pour enquêter sur un vrai incident et proposer un correctif que vous approuvez.
+Vous avez construit un agent isolé, vous l'avez branché sur un modèle, puis doté de skills issus de votre propre registry et d'une personnalité (soul). Cette dernière partie en fait un **système** : une **fleet de copilotes SRE**. Plusieurs agents, chacun responsable d'*un seul* outil d'observabilité et de *rien d'autre*, unissent leurs forces pour enquêter sur un véritable incident et proposer un correctif, que vous validez.
 
 <FleetOrchestration />
 
-## L'idée : une équipe de spécialistes en lecture seule
+## Le principe : une équipe de spécialistes en lecture seule
 
-Quand quelque chose casse, vous vous tournez vers quatre signaux : **logs, metrics, traces et les events du cluster lui-même**. La fleet compte donc quatre spécialistes en lecture seule, plus un analyste principal :
+Quand un incident survient, vous consultez quatre signaux : les **logs, les metrics, les traces et les events du cluster lui-même**. La fleet se compose donc de quatre spécialistes en lecture seule et d'un analyste principal :
 
-- **logs** 🔎 — lit **Loki** (via la gateway du Loki Operator) et peut joindre `logging-loki-gateway-http.openshift-logging.svc.cluster.local:8080`, et rien d'autre, avec un filtre sur votre namespace de démo.
-- **metrics** 📈 — lit **Prometheus** (via le port tenancy de Thanos Querier), limité à `thanos-querier.openshift-monitoring.svc.cluster.local:9092` uniquement, qui lui-même ne répond que pour votre namespace.
-- **traces** 🧵 — lit **Tempo** (via la gateway Tempo), limité à `tempo-tempostack-gateway.observability-hub.svc.cluster.local:8080` uniquement.
-- **events** 🛎️ — lit les **events Kubernetes** (envoyés dans Loki par un event-exporter qui surveille votre namespace de démo), limité à la gateway du Loki Operator uniquement : le récit, par le plan de contrôle lui-même, de ce qui a changé (par ex. "Scaled down replica set payments-… to 0").
-- **analyst** 🧠 — **aucun accès à la télémétrie** (seulement le modèle et le registry de skills du cluster) ; il synthétise les constats des autres en une cause racine et un correctif recommandé.
+- **logs** 🔎 — interroge **Loki** (par la gateway du Loki Operator) ; il peut joindre `logging-loki-gateway-http.openshift-logging.svc.cluster.local:8080` et rien d'autre, avec un filtre sur votre namespace de démo.
+- **metrics** 📈 — interroge **Prometheus** (par le port tenancy de Thanos Querier) ; il ne peut joindre que `thanos-querier.openshift-monitoring.svc.cluster.local:9092`, qui ne répond lui-même que pour votre namespace.
+- **traces** 🧵 — interroge **Tempo** (par la gateway Tempo) ; il ne peut joindre que `tempo-tempostack-gateway.observability-hub.svc.cluster.local:8080`.
+- **events** 🛎️ — lit les **events Kubernetes** (transmis à Loki par un event-exporter qui surveille votre namespace de démo) ; il ne peut joindre que la gateway du Loki Operator. Ces events sont le compte rendu, par le control plane lui-même, de ce qui a changé (par exemple « Scaled down replica set payments-… to 0 »).
+- **analyst** 🧠 — **aucun accès à la télémétrie** (uniquement le modèle et le registry de skills du cluster) ; il rassemble les constats des autres agents pour en tirer une root cause (cause racine) et un correctif recommandé.
 
-La **policy de chaque agent est propre à son outil** : l'agent metrics ne peut littéralement pas lire les logs, l'analyst ne peut joindre aucun backend de télémétrie. Ce n'est pas une limite à contourner ; *c'est* le produit : une fleet à qui vous pouvez confier un incident de production sans élargir le rayon d'impact de qui que ce soit, et le prouver avec l'audit log.
+La **policy de chaque agent est taillée pour son outil** : l'agent metrics est tout simplement incapable de lire des logs, et l'analyst ne peut joindre aucun backend de télémétrie. Ce n'est pas une contrainte à contourner, c'est *précisément* ce qui fait la valeur de l'ensemble : vous pouvez confier un incident de production à cette fleet sans élargir le blast radius (périmètre d'impact) d'aucun agent, et le prouver grâce à l'audit log.
 
 <Callout type="note" title="Les agents diagnostiquent, les humains corrigent">
-Ces agents sont coupés de l'API Kubernetes du cluster : ils mènent une <strong>enquête en lecture seule</strong> sur la télémétrie, avec un token qui ne peut lire que <em>vos</em> namespaces, jamais administrer le cluster. La boucle est donc : la fleet trouve la cause racine, propose un changement, et un <strong>humain approuve</strong> avant toute application. (En production, ce changement est un commit git qu'ArgoCD synchronise : même forme, livraison automatisée.)
+Ces agents n'ont pas accès à l'API Kubernetes du cluster : ils se limitent à une <strong>enquête en lecture seule</strong> sur la télémétrie, avec un token qui ne peut lire que <em>vos</em> namespaces et ne donne aucun droit d'administration. Le cycle est donc le suivant : la fleet identifie la root cause et propose une modification, puis un <strong>humain l'approuve</strong> avant toute application. En production, cette modification prendrait la forme d'un commit git synchronisé par ArgoCD : le principe est le même, seule la livraison est automatisée.
 </Callout>
 
 ## Le déroulé de cette partie
 
-1. **Lancez la fleet et donnez une soul à chacun** — une commande lance la fleet ; chaque agent reçoit ses propres `IDENTITY.md` / `SOUL.md` et une policy limitée à son seul backend.
-2. **Orchestrez une enquête** — un chef d'orchestre *dans cette page* exécute un plan fixe, confie à chaque spécialiste une probe prescrite et laisse un analyste principal conclure.
-3. **Testez la fleet** — déployez une app d'exemple, cassez-la, regardez-la se dégrader, laissez la fleet trouver la cause, et corrigez-la en restant dans la boucle.
+1. **Lancer la fleet et donner une personnalité à chaque agent** — une seule commande démarre la fleet ; chaque agent reçoit ses propres `IDENTITY.md` / `SOUL.md` et une policy limitée à son seul backend.
+2. **Orchestrer une enquête** — un chef d'orchestre intégré *à cette page* déroule un plan prédéfini : il confie à chaque spécialiste une probe imposée, puis laisse l'analyste principal conclure.
+3. **Mettre la fleet à l'épreuve** — déployer une application d'exemple, provoquer une panne, observer sa dégradation, laisser la fleet trouver la cause, puis appliquer le correctif après votre validation (human-in-the-loop).
 
-<Callout type="rh" title="La démo qui marque">
-Un juré casse une app en un clic, demande à la fleet « que s'est-il passé ? », et regarde quatre agents scellés, chacun ne touchant de façon prouvable que son propre backend, converger vers la cause racine ; puis il approuve le correctif d'une ligne. Extensible, utile et <em>gouvernable</em>, sur un vrai OpenShift.
+<Callout type="rh" title="Une démo qui fait mouche">
+Un membre du jury casse une application d'un clic et demande à la fleet ce qui s'est passé. Il voit alors quatre agents isolés converger vers la root cause, chacun n'ayant touché, preuves à l'appui, qu'à son propre backend. Il n'a plus qu'à approuver le correctif d'une ligne. Extensible, utile et <em>gouvernable</em>, sur un vrai cluster OpenShift.
 </Callout>

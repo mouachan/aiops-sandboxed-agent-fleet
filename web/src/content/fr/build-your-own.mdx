@@ -1,66 +1,66 @@
-La fleet que vous avez construite est un **pattern**, pas un produit figé : *un agent scellé = un backend (egress) +
-une persona (SOUL) + une probe prescrite*, plus un analyste sans egress qui conclut. L'étendre
-n'élargit jamais la frontière de confiance : chaque nouvel agent atteint exactement un hôte de plus, dans sa propre policy,
-et chaque appel figure dans l'audit log. Voici des pistes concrètes, et vraiment nouvelles, pour la prolonger par vous-même.
+La fleet que vous avez construite n'est pas figée : c'est un **schéma reproductible**. *Un agent isolé = un backend (egress) +
+une persona (SOUL) + une probe imposée*, auxquels s'ajoute un analyste sans egress qui tire les conclusions. L'enrichir
+n'élargit jamais le périmètre de confiance : chaque nouvel agent atteint exactement un hôte de plus, défini dans sa propre policy,
+et chaque appel est consigné dans l'audit log. Voici quelques pistes concrètes, réellement nouvelles, pour aller plus loin par vous-même.
 
 ## Un nouveau spécialiste : l'agent alerts 🚨
 
-Vous avez déjà logs, metrics, traces et events. Ajoutez un cinquième agent qui lit **Alertmanager**,
-c'est-à-dire ce qui est *déjà en alerte*, pour que la fleet parte des alertes et pas seulement des signaux bruts.
+Vous disposez déjà des agents logs, metrics, traces et events. Ajoutez-en un cinquième qui interroge **Alertmanager**,
+c'est-à-dire les alertes *déjà déclenchées* : la fleet partira ainsi des alertes, et pas seulement des signaux bruts.
 
-1. **Spec** — une ligne dans `fleet.txt` (Alertmanager fait partie de l'OpenShift Cluster Monitoring Operator) :
+1. **Spécification** — une ligne dans `fleet.txt` (Alertmanager fait partie du Cluster Monitoring Operator d'OpenShift) :
 
    ```text
    alerts   alertmanager-main.openshift-monitoring.svc.cluster.local:9092   -
    ```
 
-   (`9092` est le port *tenancy* d'Alertmanager : il ne renvoie que les alertes du `?namespace=` demandé, et vérifie que le token de l'agent a le droit de le lire ; dans un lab partagé, l'agent ne voit donc que vos alertes. Il vérifie l'accès en lecture aux `prometheusrules` de ce namespace (le rôle `monitoring-rules-view`), que le token `telemetry-reader` de la fleet n'a pas encore : un admin l'accorde avec `oc -n "$DEMO_NS" create rolebinding alerts-reader --clusterrole=monitoring-rules-view --serviceaccount="$OPENSHELL_NS":telemetry-reader`.)
-2. **Soul** — `manifests/openclaw/fleet-roles/alerts/{IDENTITY.md,SOUL.md}` : « vous lisez uniquement
-   les alertes actives ; faites ressortir alertname, severity et l'objet concerné. »
-3. **Probe** — ajoutez à `buildProbes()` dans l'orchestrateur :
+   (`9092` est le port *tenancy* d'Alertmanager : il ne renvoie que les alertes du namespace passé dans `?namespace=`, après avoir vérifié que le token de l'agent a le droit de le lire. Dans un lab partagé, l'agent ne voit donc que vos alertes. Cette vérification porte sur l'accès en lecture aux `prometheusrules` du namespace (rôle `monitoring-rules-view`), un droit que le token `telemetry-reader` de la fleet n'a pas encore. Un administrateur peut l'accorder avec `oc -n "$DEMO_NS" create rolebinding alerts-reader --clusterrole=monitoring-rules-view --serviceaccount="$OPENSHELL_NS":telemetry-reader`.)
+2. **Soul** — `manifests/openclaw/fleet-roles/alerts/{IDENTITY.md,SOUL.md}` : « you read firing
+   alerts only; surface alertname, severity, and the object. »
+3. **Probe** — ajoutez dans `buildProbes()`, côté orchestrateur :
 
    ```text
    alerts: https://<alertmanager>:9092/api/v2/alerts?namespace=<demo ns>
    ```
-   `tq.js` affiche déjà les tableaux JSON de façon compacte. `fleet.sh up` fait le reste.
+   `tq.js` sait déjà afficher les tableaux JSON de façon compacte, et `fleet.sh up` s'occupe du reste.
 
-## Une nouvelle panne : faites *converger* les quatre signaux
+## Un nouveau fault qui *croise* les quatre signaux
 
-La panne payments-down est nette, et les events suffisent presque à la résoudre. Injectez quelque chose qui oblige la fleet
-à **réconcilier plusieurs signaux** : c'est là qu'une fleet prouve sa valeur.
+Le fault payments-down (la panne injectée) est simple : les events suffisent presque à la diagnostiquer. Injectez plutôt un problème qui oblige la fleet
+à **recouper plusieurs signaux**. C'est là qu'une fleet montre tout son intérêt :
 
-- **CrashLoopBackOff** — livrez une command/args erronée. `events` montre alors BackOff, `logs` montre la
-  sortie du crash (de vraies lignes de log !), `metrics` montre le nombre de redémarrages qui grimpe. L'analyste doit
+- **CrashLoopBackOff** — déployez une commande ou des arguments erronés. `events` remonte alors des BackOff, `logs` la
+  sortie du plantage (enfin de vraies lignes de log !) et `metrics` un nombre de redémarrages qui grimpe. L'analyste doit
   croiser les trois.
-- **Mauvaise config** — montez une ConfigMap avec une valeur erronée. L'app *démarre* (donc pas d'event de scale-down
-  ni de BackOff), écrit des erreurs dans ses logs, la latence grimpe dans les traces et une alerte SLO se déclenche. Quatre angles, une seule cause.
+- **Configuration erronée** — montez une ConfigMap contenant une mauvaise valeur. L'application *démarre* (donc aucun event de scale-down
+  ni de BackOff), mais elle journalise des erreurs, la latence s'envole dans les traces et une alerte SLO se déclenche. Quatre angles d'attaque, une seule cause.
 
-Branchez-la comme une action de plus dans [`/api/incident`](/learn/incident-lab), à côté de `break`.
+Ajoutez ce scénario comme nouvelle action de [`/api/incident`](/learn/incident-lab), à côté de `break`.
 
-## Un vrai skill plutôt que curl
+## Un vrai skill à la place de curl
 
-Aujourd'hui, chaque agent exécute une probe basée sur `curl`. Promouvez-la en **véritable outil** publié dans votre
-registry privé (Partie V) : un skill `@workshop/promql` qui expose `promql(query)`, ou `@workshop/logql`.
-Mettez `@workshop/promql` dans la colonne `skill` de `fleet.txt`, et l'agent metrics appelle un outil
-typé au lieu de requêtes HTTP faites main : même gouvernance, meilleure ergonomie.
+Pour l'instant, chaque agent exécute une probe à base de `curl`. Transformez-la en **véritable outil**, publié dans votre
+registry privé (partie V) : par exemple un skill `@workshop/promql` qui expose `promql(query)`, ou `@workshop/logql`.
+Indiquez `@workshop/promql` dans la colonne `skill` de `fleet.txt` : l'agent metrics appellera alors un outil typé
+au lieu de construire ses requêtes HTTP à la main. La gouvernance reste la même, l'ergonomie s'améliore.
 
-## Bouclez la boucle avec GitOps
+## Boucler la boucle avec GitOps
 
-Aujourd'hui, le correctif approuvé est un changement `kubectl` derrière une confirmation humaine. En production, faites plutôt
-ouvrir une **pull request** par « Appliquer le correctif » : l'action recommandée par l'analyste devient un commit d'une ligne
-qu'un reviewer approuve et qu'**ArgoCD** synchronise. Même forme (la fleet recommande → un humain approuve → c'est livré),
-avec une vraie livraison. Le contrôle humain ne bouge pas ; seul le mécanisme change.
+Aujourd'hui, le correctif approuvé est une modification `kubectl`, appliquée après confirmation humaine. En production, faites plutôt
+en sorte que « Appliquer le correctif » ouvre une **pull request** : l'action recommandée par l'analyste devient un commit d'une ligne,
+validé par un relecteur puis synchronisé par **ArgoCD**. Le schéma reste le même (la fleet recommande → un humain approuve → le changement est livré),
+mais avec un vrai processus de livraison. La validation humaine reste au même endroit ; seul le mécanisme change.
 
-## Pointez-la vers *votre* application
+## L'appliquer à *votre* application
 
-L'orchestrateur est paramétré : `DEMO_NAMESPACE`, `PROM_TENANCY_HOST`, `LOKI_HOST`, `TEMPO_HOST` sont des variables d'environnement
-du Deployment workshop, définies par le chart. Déployez votre propre app et réglez `global.demoNamespace` du chart sur son namespace (un upgrade
-Helm, qui recadre aussi le RBAC du workshop, le RoleBinding `telemetry-reader` et l'event-exporter) : la même fleet enquête alors sur *votre*
-namespace, car chaque probe est déjà limitée au namespace. Rien dans le pattern n'est propre à la démo `shop`.
+L'orchestrateur est paramétrable : `DEMO_NAMESPACE`, `PROM_TENANCY_HOST`, `LOKI_HOST` et `TEMPO_HOST` sont des variables d'environnement
+du Deployment workshop, définies par le chart. Déployez votre propre application et renseignez son namespace dans `global.demoNamespace` (une mise à jour
+Helm, qui redéfinit aussi le périmètre du RBAC du workshop, du RoleBinding `telemetry-reader` et de l'event-exporter) : la même fleet enquêtera alors sur *votre*
+namespace, puisque chaque probe est déjà limitée à un namespace. Rien dans ce schéma n'est propre à la démo `shop`.
 
-<Callout type="rh" title="Le test d'un bon pattern">
-Chaque idée ci-dessus repose sur les <em>trois mêmes gestes</em> : ajouter une ligne d'egress, une persona, une probe.
-Si étendre un système multi-agents à un nouveau signal tient en trois petits changements auditables, sans jamais
-ouvrir une nouvelle façon d'élargir qui-peut-joindre-quoi, vous avez construit quelque chose que vous pouvez vraiment exploiter.
-C'est tout l'objet de ce workshop.
+<Callout type="rh" title="À quoi reconnaît-on un bon schéma">
+Toutes les idées ci-dessus reposent sur les <em>trois mêmes gestes</em> : ajouter une ligne d'egress, une persona, une probe.
+Si étendre un système multi-agents à un nouveau signal se résume à trois petites modifications auditables, sans jamais
+créer de nouvelle façon d'élargir les accès, vous avez construit un système réellement exploitable.
+C'est tout le propos de cet atelier.
 </Callout>

@@ -1,52 +1,52 @@
-<Callout type="rh" title="Votre mot de passe de gateway (nécessaire pour vous connecter)">
-L'UI OpenClaw est protégée par un mot de passe. Connectez-vous avec votre mot de passe de gateway : <strong><code>openclaw</code></strong> par défaut sur un cluster mono-utilisateur, un mot de passe aléatoire par participant dans un lab partagé (la valeur de <code>OPENCLAW_GATEWAY_PASSWORD</code>). Affichez le vôtre à tout moment :
+<Callout type="rh" title="Votre mot de passe de gateway, indispensable pour vous connecter">
+L'interface OpenClaw est protégée par mot de passe. Connectez-vous avec votre mot de passe de gateway : <strong><code>openclaw</code></strong> par défaut sur un cluster mono-utilisateur, un mot de passe aléatoire propre à chaque participant dans un lab partagé (c'est la valeur de <code>OPENCLAW_GATEWAY_PASSWORD</code>). Vous pouvez l'afficher à tout moment :
 
 ```bash
 grep OPENCLAW_GATEWAY_PASSWORD ~/workshop/.env
 ```
 </Callout>
 
-La Control UI de votre agent tourne sur le port `30789`, mais **scellée dans la sandbox** : rien à l'extérieur ne peut s'y connecter directement. La sandbox est scellée côté réseau, donc seul `openshell forward` (qui crée un tunnel *à travers* la gateway et le supervisor) peut faire le pont jusqu'à elle.
+La Control UI de votre agent écoute sur le port `30789`, mais elle est **enfermée dans la sandbox** : rien ne peut s'y connecter directement depuis l'extérieur. La sandbox étant isolée du réseau, seul `openshell forward`, qui établit un tunnel *à travers* la gateway et le supervisor, permet de l'atteindre.
 
-## Exposez l'UI
+## Exposer l'interface
 
-**Rien à lancer ici : le pont tourne déjà pour vous.** Le pont, c'est `openshell forward` : il écoute sur un port et fait passer chaque connexion *à travers* la gateway et le supervisor de la sandbox, jusqu'au même port dans la sandbox. Le pod workshop a un **sidecar** `openclaw-forward` qui exécute `openshell forward start 0.0.0.0:30789 shifty` en boucle (il se reconnecte à chaque redémarrage d'OpenClaw), et une Route OpenShift (`openclaw-ui`) pointe vers lui. Votre shell de lab partage le réseau du pod : vérifiez donc le pont directement :
+**Vous n'avez rien à lancer : le tunnel est déjà actif.** Il s'agit de `openshell forward`, qui écoute sur un port et fait transiter chaque connexion *à travers* la gateway et le supervisor de la sandbox, jusqu'au même port à l'intérieur de celle-ci. Le pod workshop comporte un **sidecar** `openclaw-forward` qui exécute `openshell forward start 0.0.0.0:30789 shifty` en boucle (il se reconnecte à chaque redémarrage d'OpenClaw), et une Route OpenShift (`openclaw-ui`) pointe vers lui. Comme votre shell de lab partage le réseau du pod, vous pouvez vérifier le tunnel directement :
 
 ```bash
 curl -s -o /dev/null -w "OpenClaw UI: HTTP %{http_code}\n" http://127.0.0.1:30789/
 ```
 
-`HTTP 200` signifie que le pont est actif : Route → `openshell forward` → gateway → supervisor → l'UI de l'agent.
+`HTTP 200` signifie que le tunnel fonctionne : Route → `openshell forward` → gateway → supervisor → interface de l'agent.
 
-<Callout type="note" title="Pourquoi un forward et pas un Service ?">
-Une <em>sandbox</em> est scellée côté réseau : son pod est cloisonné par une NetworkPolicy, donc rien ne peut se connecter directement à son port d'écoute, pas même un autre pod. Seul <code>openshell forward</code> (qui crée un tunnel <em>à travers</em> la gateway et le supervisor) peut l'atteindre. Un forward par port.
+<Callout type="note" title="Pourquoi un forward plutôt qu'un Service ?">
+Une <em>sandbox</em> est isolée du réseau : son pod est cloisonné par une NetworkPolicy, si bien que personne ne peut se connecter directement à son port d'écoute, pas même un autre pod. Seul <code>openshell forward</code>, qui passe <em>à travers</em> la gateway et le supervisor, peut l'atteindre. Il faut un forward par port.
 </Callout>
 
-## Ouvrez-la dans votre navigateur
+## L'ouvrir dans le navigateur
 
-<ServiceLink service="openclaw">Ouvrez l'UI OpenClaw</ServiceLink> (la Route `openclaw-ui` de votre namespace) et connectez-vous avec votre **mot de passe de gateway**. Affichez-le dans votre terminal :
+<ServiceLink service="openclaw">Ouvrez l'interface OpenClaw</ServiceLink> (la Route `openclaw-ui` de votre namespace) et connectez-vous avec votre **mot de passe de gateway**. Pour l'afficher dans le terminal :
 
 ```bash
 grep OPENCLAW_GATEWAY_PASSWORD ~/workshop/.env
 ```
 
-Dans ce lab, c'est un mot de passe aléatoire qui vous est propre (il figure aussi sur la page reçue lors de votre inscription) ; sur un cluster mono-utilisateur, c'est `openclaw`.
+Dans ce lab, il s'agit d'un mot de passe aléatoire qui vous est propre (il figure aussi sur la page obtenue lors de votre inscription) ; sur un cluster mono-utilisateur, c'est `openclaw`.
 
-Sur le formulaire de connexion d'OpenClaw, laissez **Gateway Token** vide, collez le mot de passe dans le champ **Password**, puis cliquez sur **Connect**. (La gateway utilise l'authentification par mot de passe : un mot de passe saisi dans le champ du token est rejeté avec *Auth required*.)
+Dans le formulaire de connexion d'OpenClaw, laissez le champ **Gateway Token** vide, collez le mot de passe dans le champ **Password**, puis cliquez sur **Connect**. La gateway authentifie par mot de passe : saisi dans le champ du token, le mot de passe est refusé avec le message *Auth required*.
 
-## Optionnel : le même pont depuis votre propre ordinateur portable
+## Facultatif : le même tunnel depuis votre ordinateur portable
 
-Inutile pour ce lab, et rien à installer pour cela. Plus tard, avec la CLI `openshell` installée sur votre ordinateur portable et connectée à votre propre gateway OpenShell, vous lanceriez le pont vous-même et ouvririez l'UI de l'agent sur `http://localhost:30789` :
+Cette étape n'est pas nécessaire pour le lab et ne demande aucune installation. Plus tard, une fois la CLI `openshell` installée sur votre ordinateur portable et connectée à votre propre gateway OpenShell, vous pourrez lancer le tunnel vous-même et ouvrir l'interface de l'agent à l'adresse `http://localhost:30789` :
 
 ```bash-ref
 openshell forward start 0.0.0.0:30789 shifty --background
 openshell forward list
 ```
 
-Arrêtez-le avec `openshell forward stop 30789 shifty`.
+Pour l'arrêter : `openshell forward stop 30789 shifty`.
 
-## Aussi : la console OpenShift (optionnel)
+## La console OpenShift (facultatif)
 
-<ServiceLink service="console">Ouvrez la console OpenShift</ServiceLink> : parcourez vos namespaces, vos pods et vos events. (Dans un lab partagé sans compte console par participant, ce lien est masqué.)
+<ServiceLink service="console">Ouvrez la console OpenShift</ServiceLink> pour parcourir vos namespaces, vos pods et vos events. Dans un lab partagé où les participants n'ont pas de compte sur la console, ce lien n'apparaît pas.
 
-Ensuite : la première connexion du navigateur demande un **appairage de l'appareil** (device pairing) ; approuvez-le.
+Au chapitre suivant : la première connexion depuis le navigateur demande un **appairage de l'appareil** (device pairing), que vous allez approuver.

@@ -1,21 +1,21 @@
-Votre cluster embarque une stack d'observabilité complète, **déjà en marche** : elle fait partie de la plateforme pré-construite, comme le cluster et la gateway. Elle est pour *vous*, l'opérateur : des dashboards sur le cluster et votre fleet d'agents, sans aucune configuration.
+Votre cluster est livré avec une observability stack complète, **déjà opérationnelle** : comme le cluster et la gateway, elle fait partie de la plateforme préinstallée. Elle s'adresse à *vous*, l'opérateur, et vous donne des dashboards sur le cluster et sur votre fleet d'agents, sans rien à configurer.
 
-## Ce que vous avez
+## Les composants
 
-Fournie par des operators OpenShift, répartie sur plusieurs namespaces :
+Ils sont fournis par des Operators OpenShift et répartis sur plusieurs namespaces :
 
-- **Grafana** — les dashboards, disponibles à **`/grafana`** sur le site du workshop ou via sa Route OpenShift (dans le namespace partagé `monitoring`). Sur un cluster mono-utilisateur, connectez-vous en `admin` / `openclaw` ; dans un lab partagé, il s'ouvre en lecture seule (Viewer anonyme).
-- **Prometheus (via Thanos Querier)** — les metrics de l'OpenShift Cluster Monitoring Operator (namespace `openshift-monitoring`).
-- **Alertmanager** — le routage des alertes, également fourni par le Cluster Monitoring Operator (namespace `openshift-monitoring`).
-- **Loki** — l'agrégation des logs via le Loki Operator (namespace `openshift-logging`).
-- **Tempo** — le tracing distribué via le Tempo Operator (namespace `observability-hub`).
-- **OTEL Collector** — l'endpoint d'ingestion des traces (namespace `observability-hub`).
+- **Grafana** — les dashboards, accessibles à l'adresse **`/grafana`** du site de l'atelier ou par sa Route OpenShift (dans le namespace partagé `monitoring`). Sur un cluster mono-utilisateur, connectez-vous avec `admin` / `openclaw` ; dans un lab partagé, Grafana s'ouvre en lecture seule (rôle Viewer anonyme).
+- **Prometheus (via Thanos Querier)** — les metrics du Cluster Monitoring Operator d'OpenShift (namespace `openshift-monitoring`).
+- **Alertmanager** — le routage des alertes, fourni lui aussi par le Cluster Monitoring Operator (namespace `openshift-monitoring`).
+- **Loki** — l'agrégation des logs, assurée par le Loki Operator (namespace `openshift-logging`).
+- **Tempo** — le traçage distribué, assuré par le Tempo Operator (namespace `observability-hub`).
+- **OTEL Collector** — l'endpoint de collecte des traces (namespace `observability-hub`).
 
-L'**OpenShift Cluster Monitoring Operator** fournit Prometheus (exposé via Thanos Querier) et Alertmanager ; le **Loki Operator** fournit l'agrégation des logs ; le **Tempo Operator** fournit le tracing distribué ; et l'**OTEL Collector** gère l'ingestion des traces. Un **Grafana** autonome dans le namespace `monitoring` a toutes ses sources de données pré-câblées. Un dashboard personnalisé **Agent Fleet** suit le CPU, la mémoire et les redémarrages des pods de vos sandboxes.
+En résumé, l'**OpenShift Cluster Monitoring Operator** fournit Prometheus (exposé par Thanos Querier) et Alertmanager, le **Loki Operator** l'agrégation des logs et le **Tempo Operator** le traçage distribué, tandis que l'**OTEL Collector** se charge de la collecte des traces. Une instance **Grafana** autonome, dans le namespace `monitoring`, est livrée avec toutes ses sources de données déjà configurées. Un dashboard dédié, **Agent Fleet**, suit le CPU, la mémoire et les redémarrages des pods de vos sandboxes.
 
-## Ouvrez-la
+## Y accéder
 
-La stack tourne sur plusieurs namespaces ; vérifiez que les pods sont en marche :
+La stack est répartie sur plusieurs namespaces. Vérifiez que les pods sont bien en cours d'exécution :
 
 ```bash
 oc -n openshift-monitoring get pods
@@ -24,16 +24,16 @@ oc -n observability-hub get pods
 oc -n monitoring get pods
 ```
 
-<ServiceLink service="grafana">Ouvrez Grafana</ServiceLink> (cluster mono-utilisateur : connectez-vous en `admin` / `openclaw` ; lab partagé : pas de login, lecture seule). Vous arrivez sur le dashboard préchargé **OpenShell Agent Fleet** (CPU / mémoire / redémarrages par sandbox) ; les dashboards Kubernetes intégrés sont là aussi. (Il est servi directement à **`/grafana`** sur le site du workshop : un proxy same-origin vers le Service de Grafana dans le cluster.)
+<ServiceLink service="grafana">Ouvrez Grafana</ServiceLink> (cluster mono-utilisateur : connectez-vous avec `admin` / `openclaw` ; lab partagé : aucune connexion, accès en lecture seule). Vous arrivez sur le dashboard préchargé **OpenShell Agent Fleet** (CPU, mémoire et redémarrages par sandbox) ; les dashboards Kubernetes standard sont également disponibles. Grafana est servi directement par ce site, à l'adresse **`/grafana`**, au travers d'un proxy de même origine vers le Service Grafana du cluster.
 
-<Callout type="note" title="Pré-déployée (et comment s'en passer)">
-Les composants gérés par des operators (Prometheus, Loki, Tempo, OTEL Collector) sont provisionnés avec la plateforme. Le Grafana autonome est installé par les scripts de déploiement comme release Helm à part (<code>nemoclaw-monitoring</code>) dans le namespace partagé <code>monitoring</code>.
+<Callout type="note" title="Déjà déployée (et comment s'en passer)">
+Les composants gérés par des Operators (Prometheus, Loki, Tempo, OTEL Collector) sont installés en même temps que la plateforme. L'instance Grafana autonome est installée par les scripts de déploiement, sous la forme d'une release Helm distincte (<code>nemoclaw-monitoring</code>) dans le namespace partagé <code>monitoring</code>.
 </Callout>
 
-## Surveillez la fleet
+## Surveiller la fleet
 
-Ouvrez le dashboard **OpenShell Agent Fleet** dans Grafana. À mesure que vous créez des sandboxes (l'app multi-agents de la Partie VI), chacune apparaît ici (CPU, mémoire, redémarrages par pod d'agent), avec la santé de la gateway elle-même. Dans un lab partagé, choisissez votre namespace (<code><Ns which="openshell" /></code>) dans le sélecteur de namespace du dashboard. C'est votre vue d'opérateur sur toute la fleet d'agents, sur un seul écran.
+Ouvrez le dashboard **OpenShell Agent Fleet** dans Grafana. Chaque nouvelle sandbox que vous créez (par exemple celles de l'application multi-agents de la partie VI) y apparaît, avec le CPU, la mémoire et les redémarrages de chaque pod d'agent, ainsi que l'état de santé de la gateway elle-même. Dans un lab partagé, choisissez votre namespace (<code><Ns which="openshell" /></code>) dans le sélecteur de namespace du dashboard. Vous disposez ainsi, sur un seul écran, d'une vue d'opérateur sur toute votre fleet d'agents.
 
-<Callout type="note" title="Les agents peuvent-ils lire cette télémétrie ?">
-Pas par défaut. Une sandbox de la gateway est scellée côté réseau et ne sort (egress) que vers les hôtes autorisés par sa policy : la policy de <code>shifty</code> ne liste aucun backend de télémétrie, l'agent ne peut donc interroger ni Prometheus, ni Loki, ni Tempo (le même sceau le tient à l'écart de l'API Kubernetes). Dans la Partie VI, vous construisez une <strong>fleet</strong> dont chaque policy autorise exactement <em>un</em> backend (Thanos sur son port tenancy, Loki ou Tempo), avec un token de lecture à courte durée de vie limité à vos propres namespaces : chaque agent ne voit que sa part de <em>votre</em> télémétrie.
+<Callout type="note" title="Les agents ont-ils accès à cette télémétrie ?">
+Pas par défaut. Une sandbox créée par la gateway est isolée du réseau : elle ne peut joindre que les hôtes autorisés par sa policy. Celle de <code>shifty</code> ne mentionne aucun backend de télémétrie, l'agent ne peut donc interroger ni Prometheus, ni Loki, ni Tempo (la même isolation le tient à l'écart de l'API Kubernetes). Dans la partie VI, vous construirez une <strong>fleet</strong> dont chaque policy autorise exactement <em>un</em> backend (Thanos sur son port tenancy, Loki ou Tempo), avec un token de lecture de courte durée limité à vos propres namespaces. Chaque agent ne voit ainsi que sa part de <em>votre</em> télémétrie.
 </Callout>

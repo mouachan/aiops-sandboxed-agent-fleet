@@ -1,8 +1,8 @@
-Votre agent a une UI de chat et une CLI, mais la porte la plus utile est celle à laquelle votre **propre code** peut frapper. La gateway OpenClaw peut exposer un endpoint `/v1/chat/completions` **compatible OpenAI** : tout outil, script ou SDK qui parle déjà OpenAI peut dialoguer avec votre agent *gouverné et isolé dans sa sandbox*, en changeant une seule ligne, l'URL de base.
+Votre agent dispose d'une interface de chat et d'une CLI, mais l'accès le plus utile reste celui que votre **propre code** peut exploiter. La gateway OpenClaw sait exposer un endpoint `/v1/chat/completions` **compatible OpenAI** : n'importe quel outil, script ou SDK qui utilise déjà l'API OpenAI peut alors dialoguer avec votre agent *isolé et soumis à ses policies*, en changeant simplement l'URL de base.
 
-## 1. Activez l'endpoint
+## 1. Activer l'endpoint
 
-Il est désactivé par défaut. Activez-le dans `openclaw.json` et redémarrez la gateway :
+Il est désactivé par défaut. Activez-le dans `openclaw.json`, puis redémarrez la gateway :
 
 ```bash
 openshell sandbox exec -n shifty -- sh -c \
@@ -14,11 +14,11 @@ openshell sandbox exec -n shifty -- sh -c \
   'cd /sandbox && pkill -f "^openclaw-gateway"; sleep 2; pkill -9 -f "^openclaw-gateway"; setsid nohup openclaw gateway run --port 30789 --bind lan --auth password --password '"${OPENCLAW_GATEWAY_PASSWORD:-openclaw}"' --allow-unconfigured >/sandbox/gateway.log 2>&1 < /dev/null & echo $! > gateway.pid; for i in $(seq 1 15); do sed "s/\x1b\[[0-9;]*m//g" /sandbox/gateway.log | grep -qE "\[gateway\] ready" && break; sleep 2; done; sed "s/\x1b\[[0-9;]*m//g" /sandbox/gateway.log | grep -E "\[gateway\] ready" | tail -1'
 ```
 
-L'endpoint passe par le **même `:30789`** que la Control UI et le WebSocket : le port que le sidecar `openclaw-forward` du pod workshop relaie avec `openshell forward` (voir *Ouvrez l'UI de l'agent*). Ce port est interne à la sandbox ; le forward le rend joignable depuis votre shell de lab à l'adresse `http://127.0.0.1:30789/v1/chat/completions`.
+L'endpoint est servi sur le **même port `:30789`** que la Control UI et le WebSocket, celui que le sidecar `openclaw-forward` du pod workshop relaie avec `openshell forward` (voir « Ouvrir l'interface de l'agent »). Ce port n'est accessible qu'à l'intérieur de la sandbox ; grâce au forward, vous pouvez le joindre depuis le shell du lab à l'adresse `http://127.0.0.1:30789/v1/chat/completions`.
 
-## 2. Appelez-le comme OpenAI
+## 2. L'appeler comme l'API OpenAI
 
-Authentifiez-vous avec votre **mot de passe de gateway** comme bearer token, et utilisez l'identifiant de modèle **`openclaw`** : la gateway le route vers le modèle configuré pour votre agent (votre endpoint d'inférence, joint avec la clé placeholder du provider). Depuis le shell du lab :
+Authentifiez-vous en passant votre **mot de passe de gateway** comme bearer token, et indiquez le modèle **`openclaw`** : la gateway transmet la requête au modèle configuré pour votre agent (votre endpoint d'inférence, appelé avec la clé placeholder du provider). Depuis le shell du lab :
 
 ```bash
 curl -s http://127.0.0.1:30789/v1/chat/completions \
@@ -28,16 +28,16 @@ curl -s http://127.0.0.1:30789/v1/chat/completions \
   | jq -r '.choices[0].message.content'
 ```
 
-Vous obtenez `PONG`. Cet aller-retour a suivi ce chemin : votre `curl` → le forward → la gateway OpenClaw dans la sandbox → le proxy d'egress de la sandbox (le supervisor remplace le placeholder par votre vraie clé) → votre endpoint → retour. **Toute la chaîne scellée, derrière une API au format OpenAI.**
+La réponse est `PONG`. Pour l'obtenir, la requête a fait l'aller-retour suivant : votre `curl` → le forward → la gateway OpenClaw dans la sandbox → le proxy d'egress de la sandbox (où le supervisor remplace le placeholder par votre vraie clé) → votre endpoint, puis retour. **Toute la chaîne isolée, derrière une API au format OpenAI.**
 
-<Callout type="note" title="Pointez-y n'importe quel client OpenAI">
-Tout ce qui accepte une URL de base OpenAI fonctionne. Dans le code : réglez <code>base_url="http://127.0.0.1:30789/v1"</code> (le port forwardé de la sandbox), <code>api_key</code> = votre mot de passe de gateway (<code>openclaw</code> par défaut sur un cluster mono-utilisateur), <code>model="openclaw"</code>, et appelez <code>chat.completions.create(...)</code> comme d'habitude. Votre script ne voit jamais votre vraie clé d'inférence, et l'agent reste dans sa sandbox.
+<Callout type="note" title="Compatible avec tout client OpenAI">
+Tout outil qui accepte une URL de base OpenAI fonctionne. Dans votre code, définissez <code>base_url="http://127.0.0.1:30789/v1"</code> (le port de la sandbox relayé par le forward), <code>api_key</code> = votre mot de passe de gateway (<code>openclaw</code> par défaut sur un cluster mono-utilisateur) et <code>model="openclaw"</code>, puis appelez <code>chat.completions.create(...)</code> comme d'habitude. Votre script ne voit jamais votre vraie clé d'inférence, et l'agent ne sort pas de sa sandbox.
 </Callout>
 
-<Callout type="note" title="Pourquoi c'est plus qu'un proxy de modèle">
-Ce n'est pas un simple relais vers votre LLM : c'est votre <strong>agent</strong>. Identité, outils (recherche web, skills) et policy s'appliquent tous. Un appel au format OpenAI peut donc déclencher une recherche web gouvernée ou un skill ClawHub, pas seulement une completion brute.
+<Callout type="note" title="Bien plus qu'un proxy vers le modèle">
+Il ne s'agit pas d'un simple relais vers votre LLM : vous vous adressez à votre <strong>agent</strong>, avec son identité, ses outils (recherche web, skills) et sa policy. Un appel au format OpenAI peut donc déclencher une recherche web contrôlée ou un skill ClawHub, et pas seulement produire une complétion.
 </Callout>
 
-<Callout type="rh" title="Votre agent devient une brique">
-Une URL stable et compatible OpenAI permet à votre agent en sandbox de se placer derrière une app web, une étape de CI ou un autre agent : une infrastructure composable, pas un gadget de chat. La fleet de la Partie VI appelle plutôt ses agents via la CLI (<code>openclaw agent --local</code> via <code>openshell sandbox exec</code>), mais tout service que vous construisez peut utiliser cet endpoint.
+<Callout type="rh" title="Votre agent devient une brique logicielle">
+Avec une URL stable et compatible OpenAI, votre agent isolé peut servir de back-end à une application web, à une étape de CI ou à un autre agent. C'est une brique d'infrastructure réutilisable, pas un gadget conversationnel. La fleet de la partie VI appelle ses agents par la CLI (<code>openclaw agent --local</code> via <code>openshell sandbox exec</code>), mais n'importe quel service que vous développez peut utiliser cet endpoint.
 </Callout>

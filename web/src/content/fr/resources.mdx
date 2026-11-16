@@ -1,34 +1,34 @@
-Où aller plus loin, et les liens essentiels.
+Pour aller plus loin, voici les ressources et les liens essentiels.
 
 ## La barre d'outils (en haut à droite de chaque page)
 
-Trois outils live se trouvent dans l'en-tête :
+L'en-tête de chaque page regroupe trois outils, alimentés en direct :
 
-- **Live** → [Live OpenShell](/learn/live). Lit votre gateway directement depuis le cluster : santé et version de la gateway, la **fleet de sandboxes**, les **providers** enregistrés (identifiants d'inférence : noms de clés uniquement, jamais les valeurs), et, en cliquant sur une sandbox, ses **Logs / audit**, ses **Décisions de policy** (chaque tentative d'egress que la policy a *autorisée* ou *refusée*, avec un code couleur, l'hôte, le binaire, la règle, le moteur et le motif du refus) et sa **Policy** effective (YAML complet). Rafraîchissement automatique ; servi en lecture seule via `/api/openshell`.
-- **Approvals** → [/approvals](/approvals). Deux boîtes de réception human-in-the-loop, avec un badge live du nombre de demandes en attente :
-  - **Demandes d'accès** — quand l'agent se voit refuser l'accès à une API ou à un site web, la gateway propose une règle d'autorisation ; **Approuver** la fusionne dans la policy d'egress *live* de l'agent, **Refuser** la rejette (les RPC draft-policy de la gateway).
-  - **Approbations d'appareils** — les navigateurs et CLI qui demandent à s'appairer avec la Control UI de l'agent ; approuvez ou refusez chacun.
+- **Live** → [Live OpenShell](/learn/live). Interroge votre gateway directement dans le cluster et affiche son état et sa version, la **fleet de sandboxes** et les **providers** enregistrés (identifiants d'inférence : seuls les noms des clés apparaissent, jamais leur valeur). Cliquez sur une sandbox pour afficher ses onglets **Logs / audit**, **Décisions de policy** (chaque tentative d'egress *autorisée* ou *refusée* par la policy, avec un code couleur, l'hôte, le binaire, la règle, le moteur et le motif du refus) et **Policy** (la policy effective, en YAML complet). La page se rafraîchit automatiquement ; ses données, en lecture seule, proviennent de `/api/openshell`.
+- **Approvals** → [/approvals](/approvals). Deux files de validation human-in-the-loop, avec un badge qui indique en direct le nombre de demandes en attente :
+  - **Demandes d'accès** — lorsque l'agent se voit refuser l'accès à une API ou à un site web, la gateway propose une allow rule. **Approuver** l'ajoute à la policy d'egress *en vigueur* de l'agent, **Refuser** la rejette (ce sont les RPC draft-policy de la gateway).
+  - **Approbations d'appareils** — les navigateurs et les CLI qui demandent à être appairés avec la Control UI de l'agent ; vous approuvez ou refusez chaque demande.
 - **Liens** — ouvre les services de votre cluster dans un nouvel onglet :
-  - **OpenClaw UI** — la Control UI de votre agent (chat + appairage d'appareils), via sa Route OpenShift.
-  - **Grafana** — les dashboards d'observabilité (same-origin `/grafana`).
-  - **Console OpenShift** — la console web du cluster, à l'URL de sa Route (masquée dans un lab partagé sans comptes console).
+  - **OpenClaw UI** — la Control UI de votre agent (chat et appairage des appareils), par sa Route OpenShift.
+  - **Grafana** — les dashboards d'observabilité (servis par ce site, à l'adresse `/grafana`).
+  - **OpenShift console** — la console web du cluster, à l'URL de sa Route (masquée dans un lab partagé sans compte sur la console).
 
-## La stack
+## Les composants
 - **Red Hat OpenShift** — docs.openshift.com
-- **OpenShell** — le runtime de sandbox des agents et son plan de contrôle
+- **OpenShell** — le runtime de sandbox et le control plane des agents
 - **OpenClaw** — l'agent et sa Control UI ; `openclaw --help`, docs.openclaw.ai
 
-## Concepts à approfondir
-- RBAC OpenShift, Security Context Constraints, NetworkPolicy.
-- Le CRD agent-sandbox (`sandboxes.agents.x-k8s.io`).
-- Skills, outils et appairage d'appareils OpenClaw, et le pattern workspace-comme-mémoire (IDENTITY/SOUL).
-- Model Context Protocol (MCP) pour des outils d'agent typés.
-- Modélisation des menaces pour les agents autonomes : prompt injection, exposition des identifiants, contrôle de l'egress, approbation humaine, audit logs.
-- Durcissement pour la production : mTLS/OIDC sur la gateway, RBAC par équipe, gestion externe des secrets, GitOps, export vers le SIEM, OpenShift supporté.
+## Notions à approfondir
+- Le RBAC d'OpenShift, les Security Context Constraints, les NetworkPolicies.
+- La CRD agent-sandbox (`sandboxes.agents.x-k8s.io`).
+- Les skills, les outils et l'appairage des appareils dans OpenClaw, ainsi que le principe du workspace comme mémoire (IDENTITY/SOUL).
+- Le Model Context Protocol (MCP), pour doter les agents d'outils typés.
+- La modélisation des menaces pour les agents autonomes : prompt injection, exposition des identifiants, contrôle de l'egress, approbation humaine, audit logs.
+- Le durcissement pour la production : mTLS/OIDC sur la gateway, RBAC par équipe, gestion externe des secrets, GitOps, export vers un SIEM, version d'OpenShift couverte par le support.
 
-## Le dépôt du workshop
-Tout ce que vous avez déployé est scripté dans le dépôt du workshop : `chart/` (le Helm chart parapluie : gateway OpenShell, ce workshop, Grafana), `scripts/` (`deploy.sh` pour une instance, `lab.sh` pour un lab multi-utilisateurs, `fleet.sh` pour la fleet d'agents), `manifests/` (les seeds OpenClaw, les rôles de la fleet, l'app de démo), `policies/`, et ce site dans `web/`. Dans votre shell de lab, il se trouve dans `~/workshop`. Lisez-le, forkez-le, construisez votre projet de hackathon par-dessus.
+## Le dépôt de l'atelier
+Tout ce que vous avez déployé est automatisé dans le dépôt de l'atelier : `chart/` (l'umbrella chart Helm : gateway OpenShell, ce site d'atelier, Grafana), `scripts/` (`deploy.sh` pour une instance unique, `lab.sh` pour un lab multi-utilisateurs, `fleet.sh` pour la fleet d'agents), `manifests/` (fichiers d'amorçage OpenClaw, rôles de la fleet, application de démo), `policies/`, et ce site, dans `web/`. Dans le shell du lab, vous le trouverez sous `~/workshop`. Explorez-le, forkez-le et bâtissez dessus votre projet de hackathon.
 
-<Callout type="rh" title="Merci d'avoir participé">
-Construit par <strong>Red Hat</strong> et <strong>Nvidia</strong>. À vous de donner un super-pouvoir à votre homard. 🦞
+<Callout type="rh" title="Merci de votre participation">
+Conçu par <strong>Red Hat</strong> et <strong>Nvidia</strong>. À vous maintenant de donner des super-pouvoirs à votre homard. 🦞
 </Callout>

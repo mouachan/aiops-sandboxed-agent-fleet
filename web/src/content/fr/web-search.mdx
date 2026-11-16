@@ -1,8 +1,8 @@
-Par défaut, votre agent sait *raisonner*, mais pas *chercher une information* : il n'a pas d'outil de recherche, et même s'il en avait un, le réseau deny-by-default le bloquerait. Donnons-lui la **recherche web**, gratuitement et sans clé d'API : le plugin **DuckDuckGo** d'OpenClaw extrait les résultats HTML sans JavaScript de DuckDuckGo (depuis OpenClaw 2026.8, c'est un plugin séparé à installer ; la sandbox exécute la 2026.8.2). Deux éléments doivent s'aligner : la **policy d'egress** (OpenShell) et le **plugin** (OpenClaw).
+En l'état, votre agent sait *raisonner*, mais il ne peut pas *chercher d'informations* : il n'a aucun outil de recherche et, même s'il en avait un, le réseau en deny-by-default le bloquerait. Vous allez lui ajouter la **recherche web**, gratuitement et sans clé d'API. Le plugin **DuckDuckGo** d'OpenClaw récupère pour cela la version HTML sans JavaScript des résultats de DuckDuckGo (depuis OpenClaw 2026.8, ce plugin s'installe séparément ; la sandbox utilise la version 2026.8.2). Deux éléments doivent être en place : la **policy d'egress**, côté OpenShell, et le **plugin**, côté OpenClaw.
 
 ## 1. La policy l'autorise déjà
 
-Pour chercher, le processus `node` de l'agent doit joindre les hôtes de DuckDuckGo. La policy de notre sandbox a une règle dédiée exactement à cela ; regardez le bloc `websearch` :
+Pour effectuer une recherche, le processus `node` de l'agent doit pouvoir joindre les hôtes de DuckDuckGo. La policy de la sandbox contient une règle prévue précisément pour cela, le bloc `websearch` :
 
 ```bash
 cd ~/workshop
@@ -20,41 +20,41 @@ websearch:
     - { path: /usr/local/bin/node }
 ```
 
-`access: full` compte ici : un scraping HTTPS est un tunnel TLS brut, donc la règle accorde une connexion L4 complète (pas une allowlist REST analysée requête par requête) vers ces trois hôtes **uniquement**, pour `node` **uniquement**. Tout le reste reste refusé.
+Le paramètre `access: full` est important : la récupération d'une page en HTTPS passe par un tunnel TLS brut. La règle accorde donc une connexion L4 complète (et non une allowlist REST analysée requête par requête), mais **uniquement** vers ces trois hôtes et **uniquement** pour `node`. Tout le reste demeure interdit.
 
-## 2. Installez et activez le plugin DuckDuckGo
+## 2. Installer et activer le plugin DuckDuckGo
 
-Depuis OpenClaw 2026.8, la recherche DuckDuckGo est livrée comme plugin séparé. Installez la version qui correspond à la version d'OpenClaw de l'agent (2026.8.2 : les versions plus récentes du plugin exigent un OpenClaw plus récent) depuis le registry npm, que votre policy autorise déjà pour `node`. `--accept-capabilities` est le consentement explicite qu'OpenClaw demande avant qu'un plugin puisse faire des appels réseau pour le compte de l'agent. Choisissez-le ensuite comme provider de recherche web et **redémarrez la gateway** pour qu'elle charge le plugin :
+Depuis OpenClaw 2026.8, la recherche DuckDuckGo est fournie sous forme de plugin distinct. Installez la version qui correspond à celle d'OpenClaw dans l'agent (2026.8.2 ; les versions plus récentes du plugin exigent un OpenClaw plus récent) depuis le registry npm, que votre policy autorise déjà pour `node`. L'option `--accept-capabilities` donne le consentement explicite qu'OpenClaw exige avant d'autoriser un plugin à effectuer des appels réseau pour le compte de l'agent. Sélectionnez ensuite ce plugin comme provider de recherche web, puis **redémarrez la gateway** pour qu'elle le charge :
 
 ```bash
 openshell sandbox exec -n shifty -- sh -c 'openclaw plugins install @openclaw/duckduckgo-plugin@2026.8.2 --accept-capabilities; openclaw config set tools.web.search.provider duckduckgo; openclaw config get tools.web.search'
 ```
 
-<Callout type="note" title="Une seule ligne, exprès">
-Gardez-la sur une <strong>seule ligne</strong> (commandes enchaînées avec <code>;</code>). <code>openshell sandbox exec -- sh -c '…'</code> rejette un argument entre guillemets qui contient de vrais retours à la ligne : un bloc sur plusieurs lignes échoue avec <em>"command argument contains newline"</em>.
+<Callout type="note" title="Une seule ligne, c'est voulu">
+Laissez cette commande sur une <strong>seule ligne</strong> (commandes séparées par <code>;</code>). <code>openshell sandbox exec -- sh -c '…'</code> refuse un argument entre apostrophes qui contient des sauts de ligne : un bloc réparti sur plusieurs lignes échoue avec l'erreur <em>« command argument contains newline »</em>.
 </Callout>
 
-Vous verrez `Installed plugin: duckduckgo`, puis le provider relu comme `duckduckgo`. Sans le flag de consentement, la gateway refuse de démarrer (*"plugin verification failed … requires capability consent"*). Redémarrez (même commande que précédemment) :
+La sortie affiche `Installed plugin: duckduckgo`, puis la valeur relue du provider : `duckduckgo`. Sans l'option de consentement, la gateway refuse de démarrer (*« plugin verification failed … requires capability consent »*). Redémarrez-la avec la même commande que précédemment :
 
 ```bash
 openshell sandbox exec -n shifty -- sh -c \
   'cd /sandbox && pkill -f "^openclaw-gateway"; sleep 2; pkill -9 -f "^openclaw-gateway"; setsid nohup openclaw gateway run --port 30789 --bind lan --auth password --password '"${OPENCLAW_GATEWAY_PASSWORD:-openclaw}"' --allow-unconfigured >/sandbox/gateway.log 2>&1 < /dev/null & echo $! > gateway.pid; for i in $(seq 1 15); do sed "s/\x1b\[[0-9;]*m//g" /sandbox/gateway.log | grep -qE "\[gateway\] ready" && break; sleep 2; done; sed "s/\x1b\[[0-9;]*m//g" /sandbox/gateway.log | grep -E "\[gateway\] ready" | tail -1'
 ```
 
-## 3. Faites-le chercher
+## 3. Lancer une recherche
 
-Posez à l'agent une question à laquelle il ne peut répondre qu'en cherchant, et nommez l'outil : c'est ce qui pousse un petit modèle à l'utiliser de façon fiable. On exécute un tour via sa gateway :
+Posez à l'agent une question à laquelle il ne peut répondre qu'en faisant une recherche, et citez explicitement l'outil : un petit modèle l'utilisera alors de façon fiable. La commande suivante exécute un seul tour de conversation via sa gateway :
 
 ```bash
 openshell sandbox exec -n shifty -- sh -c 'cd /sandbox && openclaw agent --agent main -m "Use your web_search tool to search for: OpenShift documentation. Reply with just the domain of the official documentation site." --session-id wsdemo'
 ```
 
-Il répond avec un domaine de documentation officiel (**`docs.redhat.com`** ou **`docs.openshift.com`**, selon ce que renvoie la recherche), récupéré en direct sur DuckDuckGo, à travers la policy, par votre agent scellé. Vérifiez l'egress dans `openshell logs shifty` : les requêtes vers DuckDuckGo y figurent, autorisées par la règle `websearch`. Essayez aussi dans la **Control UI** : demandez *« Quoi de neuf dans OpenShift 4.20 ? »* et regardez-le chercher.
+L'agent répond avec le domaine d'une documentation officielle (**`docs.redhat.com`** ou **`docs.openshift.com`**, selon les résultats de la recherche). Votre agent isolé a récupéré cette information en direct sur DuckDuckGo, dans les limites fixées par la policy. Vérifiez l'egress avec `openshell logs shifty` : les requêtes vers DuckDuckGo y apparaissent, autorisées par la règle `websearch`. Faites aussi l'essai dans la **Control UI** : demandez *« what's new in OpenShift 4.20? »* et regardez l'agent lancer sa recherche.
 
-<Callout type="note" title="Gratuit, mais toujours gouverné">
-DuckDuckGo ne demande aucune clé, d'où son statut de choix par défaut. Mais remarquez que l'agent n'a pas reçu « Internet » : il a reçu <strong>trois hôtes</strong>. Si vous passiez à un provider qui appelle <code>api.bing.com</code>, l'appel serait <em>refusé</em> tant que vous n'auriez pas ajouté cet hôte à la policy. L'outil de recherche n'atteint jamais que ce que vos règles d'egress autorisent.
+<Callout type="note" title="Gratuit, mais toujours sous contrôle">
+DuckDuckGo ne nécessite aucune clé, ce qui en fait le choix par défaut le plus simple. Mais remarquez que l'agent n'a pas obtenu « Internet » : il a obtenu <strong>trois hôtes</strong>. Si vous passiez à un provider qui appelle <code>api.bing.com</code>, l'appel serait <em>refusé</em> tant que vous n'auriez pas ajouté cet hôte à la policy. L'outil de recherche ne va jamais plus loin que vos règles d'egress.
 </Callout>
 
-<Callout type="rh" title="Une capacité que vous pouvez auditer">
-Chaque recherche est une connexion `node → html.duckduckgo.com` dans <code>openshell logs shifty</code> : autorisée, attribuée et bornée. Tout l'intérêt est là : vous donnez à un agent une vraie portée sur le monde réel sans lui ouvrir le réseau.
+<Callout type="rh" title="Une capacité auditable">
+Chaque recherche apparaît dans <code>openshell logs shifty</code> sous la forme d'une connexion `node → html.duckduckgo.com` : autorisée, attribuée à son auteur et circonscrite. C'est tout l'intérêt : vous donnez à un agent un accès au monde extérieur sans lui ouvrir tout le réseau.
 </Callout>
