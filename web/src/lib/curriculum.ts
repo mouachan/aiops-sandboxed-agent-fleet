@@ -11,7 +11,7 @@ export const CURRICULUM: Part[] = [
     subtitle: "The event, the platform, what you need",
     lessons: [
       { slug: "welcome", title: "Welcome — Red Hat × NVIDIA", blurb: "Hands-on lab: build a sandboxed AI agent on OpenShift, powered by NVIDIA.", minutes: 5, fr: { title: "Bienvenue — Red Hat × NVIDIA", blurb: "Lab pratique : construire un agent IA en sandbox sur OpenShift, propulsé par NVIDIA." } },
-      { slug: "prerequisites", title: "Prerequisites", blurb: "A laptop, a browser, and access to an OpenShift cluster. No GPU needed on your side.", minutes: 4, fr: { title: "Prérequis", blurb: "Un portable, un navigateur et un accès à un cluster OpenShift. Pas de GPU de votre côté." } },
+      { slug: "prerequisites", title: "Prerequisites", blurb: "A laptop, a browser, and access to an OpenShift cluster. No GPU needed on your side.", minutes: 4, fr: { title: "Prérequis", blurb: "Un ordinateur portable, un navigateur et un accès à un cluster OpenShift. Pas de GPU de votre côté." } },
     ],
   },
   {

@@ -158,7 +158,7 @@ Les plugins communautaires doivent résoudre eux-mêmes leurs dépendances d'ex�
 
 Un skill est un petit **plugin TypeScript** construit avec le **SDK de plugins OpenClaw**. Ce SDK (`openclaw/plugin-sdk`) fait partie du package `openclaw`, et l'image de la sandbox le fournit déjà, exactement à la version de votre agent : la sandbox **est** donc votre environnement de développement de skills. Vous écrivez et buildez ici, puis (section suivante) vous **publiez dans votre registry** pour que l'agent verrouillé l'installe comme n'importe quel autre skill. En production, ce même build tourne **en CI à partir de la même image** ; les étapes ci-dessous sont identiques.
 
-<Callout type="note" title="Pourquoi ne pas développer sur votre portable ?">
+<Callout type="note" title="Pourquoi ne pas développer sur votre ordinateur portable ?">
 Parce que la chaîne d'outils correspondante se trouve dans l'image : <code>openclaw/plugin-sdk</code> et la CLI <code>openclaw</code> viennent de l'OpenClaw 2026.8.2 de la sandbox elle-même (sur Node 22). <code>openclaw</code> est aussi sur npmjs, mais <code>openclaw@latest</code> exige un Node plus récent et ne correspondrait pas à la version de votre agent. Vous buildez donc <em>là où se trouve le SDK</em> (ici la sandbox, ou en CI un conteneur issu de la même image), et c'est le registry qui transporte le résultat jusqu'à l'agent. La sandbox est la machine de dev ; l'agent est le runtime verrouillé ; le registry est le pont entre les deux.
 </Callout>
 
