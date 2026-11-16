@@ -39,7 +39,7 @@ export function OpenShellConsole() {
       <div className="flex items-center gap-2 border-b border-[var(--color-line)] px-3 py-2">
         <span className="h-2.5 w-2.5 rounded-full" style={{ background: NV }} />
         <span className="text-xs font-semibold">OpenShell Console</span>
-        <span className="text-[10px] text-[var(--color-fg-mut)]">{t("— gateway fleet management (mock)", "— gestion de la fleet via la gateway (maquette)")}</span>
+        <span className="text-[10px] text-[var(--color-fg-mut)]">{t("— gateway fleet management (mock)", "— gestion de la fleet par la gateway (maquette)")}</span>
         <span className="ml-auto rounded bg-[var(--color-bg-2)] px-1.5 py-0.5 text-[10px] text-[var(--color-fg-mut)]">admin · OIDC</span>
       </div>
       {/* tabs */}
@@ -88,7 +88,7 @@ export function OpenShellConsole() {
             <div>✓ /usr/bin/oc → kubernetes.default.svc:443 · GET /api/**, /apis/**</div>
             <div>{t("✓ /usr/local/bin/node → <your-endpoint>:443 · POST /v1/** (credential injected)", "✓ /usr/local/bin/node → <your-endpoint>:443 · POST /v1/** (identifiant injecté)")}</div>
             <div>{t("✓ /usr/bin/curl → thanos-querier.openshift-monitoring.svc:9092 · GET /api/v1/** (?namespace=your demo ns)", "✓ /usr/bin/curl → thanos-querier.openshift-monitoring.svc:9092 · GET /api/v1/** (?namespace=votre ns de démo)")}</div>
-            <div className="text-[var(--color-fg-mut)]">{t("✗ everything else — blocked", "✗ tout le reste — bloqué")}</div>
+            <div className="text-[var(--color-fg-mut)]">{t("✗ everything else — blocked", "✗ tout le reste est bloqué")}</div>
           </div>
         )}
         {tab === "Network" && (
@@ -109,7 +109,7 @@ export function OpenShellConsole() {
       </div>
       <figcaption className="border-t border-[var(--color-line)] px-3 py-2 text-[11px] text-[var(--color-fg-mut)]">
         {fr
-          ? <>La vraie console (<code>openshell-ui</code>) ajoute des terminaux PTY en direct, une boîte de réception policy-advisor et la gestion des providers — branchée sur n&apos;importe quelle gateway OpenShell en gRPC.</>
+          ? <>La vraie console (<code>openshell-ui</code>) offre en plus des terminaux PTY en direct, une boîte de réception pour le policy advisor et la gestion des providers. Elle se connecte en gRPC à n&apos;importe quelle gateway OpenShell.</>
           : <>The real console (<code>openshell-ui</code>) adds live PTY terminals, a policy-advisor inbox, and provider management — pointed at any OpenShell gateway over gRPC.</>}
       </figcaption>
     </figure>

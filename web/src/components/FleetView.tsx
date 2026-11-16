@@ -45,7 +45,7 @@ export function FleetView() {
               <span className="font-semibold">{a.name}</span>
               {a.ready
                 ? <span className="inline-flex items-center gap-1 text-xs text-[var(--color-nv-bright)]"><CheckCircle2 size={12} /> Ready</span>
-                : <span className="inline-flex items-center gap-1 text-xs text-[var(--color-fg-mut)]"><Circle size={12} /> {t("not up", "pas démarré")}</span>}
+                : <span className="inline-flex items-center gap-1 text-xs text-[var(--color-fg-mut)]"><Circle size={12} /> {t("not up", "non démarré")}</span>}
             </div>
             <div className="mt-0.5 text-xs text-[var(--color-fg-dim)]">{a.role}</div>
             <div className="mt-2 text-xs text-[var(--color-fg-mut)]">{t("may reach:", "peut joindre :")}</div>
@@ -71,10 +71,10 @@ export function FleetView() {
             )}
           </div>
         ))}
-        {agents && agents.length === 0 && <p className="text-sm text-[var(--color-fg-mut)]">{fr ? <>Aucun agent de la fleet trouvé. Lancez-les avec <code>./scripts/fleet.sh up fleet.txt</code>.</> : <>No fleet agents found — bring them up with <code>./scripts/fleet.sh up fleet.txt</code>.</>}</p>}
+        {agents && agents.length === 0 && <p className="text-sm text-[var(--color-fg-mut)]">{fr ? <>Aucun agent de la fleet n&apos;a été trouvé. Lancez-les avec <code>./scripts/fleet.sh up fleet.txt</code>.</> : <>No fleet agents found — bring them up with <code>./scripts/fleet.sh up fleet.txt</code>.</>}</p>}
       </div>
       <p className="mt-3 text-xs text-[var(--color-fg-mut)]">{fr
-        ? <>Tous les agents partagent le <strong>registry</strong> du cluster (pour installer des skills) ; au-delà, chacun ne joint <strong>que son propre outil</strong>. C&apos;est ce qui rend la policy propre à chaque agent.</>
+        ? <>Tous les agents ont accès au <strong>registry</strong> du cluster (pour installer des skills) ; au-delà, chacun ne peut joindre <strong>que son propre outil</strong>. Chaque policy est ainsi taillée pour son agent.</>
         : <>Every agent shares the in-cluster <strong>registry</strong> (to install skills); beyond that, each reaches <strong>only its own tool</strong>. That&apos;s the policy being specific to the agent.</>}</p>
     </div>
   );

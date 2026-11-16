@@ -13,7 +13,7 @@ export default async function ApprovalsPage() {
       <h1 className="mt-1 text-3xl font-bold tracking-tight text-[var(--color-fg)]">Approvals</h1>
       {lang === "fr" ? (
         <p className="mt-2 max-w-2xl text-sm text-[var(--color-fg-mut)]">
-          Deux boîtes de réception, toutes deux sous votre contrôle. <strong>Demandes d&apos;accès</strong> : quand l&apos;agent se voit refuser l&apos;accès à une API ou à un site web, la gateway propose une allow-rule. Approuvez pour la fusionner dans la policy egress active, refusez pour la rejeter. <strong>Approbations d&apos;appareils</strong> : quand un navigateur ou un CLI demande à s&apos;appairer avec la Control UI de l&apos;agent, approuvez-le ou refusez-le ici.
+          Deux files de demandes, et c&apos;est vous qui décidez. <strong>Demandes d&apos;accès</strong> : lorsque l&apos;agent se voit refuser l&apos;accès à une API ou à un site web, la gateway propose une allow-rule. Approuvez-la pour l&apos;ajouter à la policy d&apos;egress active, ou refusez-la. <strong>Approbations d&apos;appareils</strong> : lorsqu&apos;un navigateur ou une CLI demande à être appairé avec la Control UI de l&apos;agent, vous acceptez ou refusez la demande ici.
         </p>
       ) : (
         <p className="mt-2 max-w-2xl text-sm text-[var(--color-fg-mut)]">

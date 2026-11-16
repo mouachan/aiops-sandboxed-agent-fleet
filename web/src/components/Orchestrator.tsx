@@ -48,7 +48,7 @@ export function Orchestrator() {
 
   return (
     <div className="my-6 rounded-xl border border-[var(--color-line)] bg-[var(--color-panel)] p-4">
-      <div className="flex items-center gap-2 text-sm font-semibold text-[var(--color-nv-bright)]"><ListOrdered size={15} /> {t("Orchestrate the fleet", "Orchestrez la fleet")}</div>
+      <div className="flex items-center gap-2 text-sm font-semibold text-[var(--color-nv-bright)]"><ListOrdered size={15} /> {t("Orchestrate the fleet", "Orchestrer la fleet")}</div>
       <textarea value={task} onChange={(e) => setEdited(e.target.value)} rows={2}
         className="mt-3 w-full rounded-lg border border-[var(--color-line-2)] bg-[var(--color-bg)] p-2.5 text-sm" />
       <div className="mt-2 flex items-center gap-3">
@@ -68,8 +68,8 @@ export function Orchestrator() {
             {timeline.map((x) => (
               <div key={x.agent} className="flex items-center gap-2">
                 {x.status === "done" ? <CheckCircle2 size={12} className="text-[var(--color-nv-bright)]" /> : <Loader2 size={12} className="animate-spin text-[var(--color-fg-mut)]" />}
-                <span className="font-semibold">{x.agent === "writer" ? t("🧠 analyst (concludes)", "🧠 analyst (conclut)") : `🦞 ${x.agent}`}</span>
-                <span className="text-[var(--color-fg-mut)]">{x.status === "done" ? `${((x.ms || 0) / 1000).toFixed(1)}s` : x.status}{x.retried ? t(" · retried", " · réessayé") : ""}</span>
+                <span className="font-semibold">{x.agent === "writer" ? t("🧠 analyst (concludes)", "🧠 analyst (conclusion)") : `🦞 ${x.agent}`}</span>
+                <span className="text-[var(--color-fg-mut)]">{x.status === "done" ? `${((x.ms || 0) / 1000).toFixed(1)}s` : x.status}{x.retried ? t(" · retried", " · relancé") : ""}</span>
               </div>
             ))}
           </div>
@@ -92,7 +92,7 @@ export function Orchestrator() {
       ))}
       {answer && (
         <div className="mt-2 rounded-lg border border-[var(--color-nv-dim)] bg-[var(--color-bg)] p-3 text-sm">
-          <div className="text-xs font-semibold text-[var(--color-fg-mut)]">{answer.by === "analyst" ? t("🧠 ANALYST — combined root cause & fix", "🧠 ANALYST — cause racine et correctif combinés") : answer.by === "evidence-check" ? t("EVIDENCE CHECK — no fault found in the telemetry", "VÉRIFICATION DES PREUVES — aucune panne trouvée dans la télémétrie") : t("SYNTHESIZED ANSWER", "RÉPONSE SYNTHÉTISÉE")}</div>
+          <div className="text-xs font-semibold text-[var(--color-fg-mut)]">{answer.by === "analyst" ? t("🧠 ANALYST — combined root cause & fix", "🧠 ANALYST — synthèse : root cause et correctif") : answer.by === "evidence-check" ? t("EVIDENCE CHECK — no fault found in the telemetry", "VÉRIFICATION DES DONNÉES — aucune panne visible dans la télémétrie") : t("SYNTHESIZED ANSWER", "SYNTHÈSE")}</div>
           <pre className="mt-1 whitespace-pre-wrap break-words text-sm">{answer.text}</pre>
         </div>
       )}

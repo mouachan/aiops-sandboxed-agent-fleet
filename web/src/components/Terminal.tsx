@@ -118,7 +118,7 @@ export function Terminal({ title = "lab shell", fill = false }: { title?: string
   const dot = status === "live" ? "#76b900" : status === "error" || status === "closed" ? "#ee0000" : "#8a93a3";
   const statusLabel = status === "live" ? t("connected", "connecté")
     : status === "idle" ? t("idle", "inactif")
-    : status === "connecting" ? t("connecting", "connexion")
+    : status === "connecting" ? t("connecting", "connexion…")
     : status === "closed" ? t("closed", "fermé")
     : t("error", "erreur");
   const reconnect = () => {

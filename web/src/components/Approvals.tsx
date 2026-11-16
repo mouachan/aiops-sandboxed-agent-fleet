@@ -65,7 +65,7 @@ export function Approvals() {
     setBusy("d" + action + (chunkId || "")); setMsg("");
     try {
       const j = await fetch("/api/drafts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, chunkId, reason }) }).then((r) => r.json());
-      setMsg(j.ok ? t(`access ${action} ✓`, `accès ${action} ✓`) : t(`Error: ${j.error || "failed"}`, `Erreur : ${j.error || "échec"}`));
+      setMsg(j.ok ? t(`access ${action} ✓`, `accès : ${action} ✓`) : t(`Error: ${j.error || "failed"}`, `Erreur : ${j.error || "échec"}`));
       await load();
     } finally { setBusy(""); }
   }, [load, t]);
@@ -74,7 +74,7 @@ export function Approvals() {
     setBusy("v" + action + requestId); setMsg("");
     try {
       const j = await fetch("/api/devices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, requestId }) }).then((r) => r.json());
-      setMsg(j.ok ? t(`device ${action} ✓`, `appareil ${action} ✓`) : t(`Error: ${j.error || "failed"}`, `Erreur : ${j.error || "échec"}`));
+      setMsg(j.ok ? t(`device ${action} ✓`, `appareil : ${action} ✓`) : t(`Error: ${j.error || "failed"}`, `Erreur : ${j.error || "échec"}`));
       await load();
     } finally { setBusy(""); }
   }, [load, t]);
@@ -84,7 +84,7 @@ export function Approvals() {
   // deadlock — runs the same grant the scripted provisioner does, via the host-privileged
   // /api/devices route (so it's not subject to the operator-scope deadlock itself).
   const enableApprovals = useCallback(async () => {
-    setBusy("bootstrap"); setMsg(t("Enabling approvals (granting the operator admin + restarting the gateway)…", "Activation des approbations (droits admin pour l'operator + redémarrage de la gateway)…"));
+    setBusy("bootstrap"); setMsg(t("Enabling approvals (granting the operator admin + restarting the gateway)…", "Activation des approbations (droits admin pour l'opérateur, puis redémarrage de la gateway)…"));
     try {
       const j = await fetch("/api/devices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "bootstrap-admin" }) }).then((r) => r.json());
       setMsg(j.ok ? (j.output || t("approvals enabled ✓", "approbations activées ✓")) : t(`Error: ${j.error || "failed"}`, `Erreur : ${j.error || "échec"}`));
@@ -122,11 +122,11 @@ export function Approvals() {
       {msg && <div className="mb-3 rounded-md border border-[var(--color-line-2)] bg-[var(--color-bg-2)] px-3 py-1.5 font-mono text-[11px] text-[var(--color-fg-dim)]">{msg}</div>}
 
       {/* ---- egress access requests (draft policy) ---- */}
-      <h2 className="flex items-center gap-2 text-sm font-semibold text-[var(--color-fg)]"><Globe size={15} className="text-[var(--color-fg-mut)]" /> {t("Access requests", "Demandes d'accès")} <span className="text-[11px] font-normal text-[var(--color-fg-mut)]">{t("— APIs / sites the agent was denied", "— APIs / sites refusés à l'agent")}</span></h2>
+      <h2 className="flex items-center gap-2 text-sm font-semibold text-[var(--color-fg)]"><Globe size={15} className="text-[var(--color-fg-mut)]" /> {t("Access requests", "Demandes d'accès")} <span className="text-[11px] font-normal text-[var(--color-fg-mut)]">{t("— APIs / sites the agent was denied", "— API et sites refusés à l'agent")}</span></h2>
       {chunks.length === 0 ? (
         <div className="mt-2 rounded-xl border border-[var(--color-line)] bg-[var(--color-panel)] p-4 text-[13px] text-[var(--color-fg-mut)]">
           {fr
-            ? <>Aucune. Quand l&apos;agent se voit <strong>refuser</strong> l&apos;accès à un hôte, la gateway propose ici une allow-rule à approuver ou à refuser.</>
+            ? <>Aucune demande. Lorsque l&apos;agent se voit <strong>refuser</strong> l&apos;accès à un hôte, la gateway propose ici une allow-rule, que vous pouvez approuver ou refuser.</>
             : <>None. When the agent is <strong>denied</strong> reaching a host, the gateway proposes an allow-rule here to approve or deny.</>}
         </div>
       ) : (
@@ -169,16 +169,16 @@ export function Approvals() {
 
       {/* ---- device pairing approvals ---- */}
       <div className="mt-6 flex items-center gap-2">
-        <h2 className="flex items-center gap-2 text-sm font-semibold text-[var(--color-fg)]"><UserPlus size={15} className="text-[var(--color-fg-mut)]" /> {t("Device approvals", "Approbations d'appareils")} <span className="text-[11px] font-normal text-[var(--color-fg-mut)]">{t("— browsers / CLIs asking to pair", "— navigateurs / CLIs qui demandent l'appairage")}</span></h2>
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-[var(--color-fg)]"><UserPlus size={15} className="text-[var(--color-fg-mut)]" /> {t("Device approvals", "Approbations d'appareils")} <span className="text-[11px] font-normal text-[var(--color-fg-mut)]">{t("— browsers / CLIs asking to pair", "— navigateurs et CLI qui demandent un appairage")}</span></h2>
         <button disabled={!!busy} onClick={enableApprovals}
-          title={t("One-time: grant the operator admin rights so it can approve pairings. Fixes 'scope upgrade pending approval' on a fresh gateway.", "Une seule fois : donne les droits admin à l'operator pour qu'il puisse approuver les appairages. Corrige « scope upgrade pending approval » sur une gateway neuve.")}
+          title={t("One-time: grant the operator admin rights so it can approve pairings. Fixes 'scope upgrade pending approval' on a fresh gateway.", "À faire une seule fois : accorde les droits admin à l'opérateur pour qu'il puisse approuver les appairages. Corrige l'erreur « scope upgrade pending approval » sur une gateway neuve.")}
           className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-[var(--color-line-2)] px-2.5 py-1 text-[11px] text-[var(--color-fg-mut)] transition hover:text-[var(--color-fg)] disabled:opacity-50">
           <ShieldQuestion size={12} /> {t("Enable approvals", "Activer les approbations")}
         </button>
       </div>
       {devices.length === 0 ? (
         <div className="mt-2 rounded-xl border border-[var(--color-line)] bg-[var(--color-panel)] p-4 text-[13px] text-[var(--color-fg-mut)]">
-          {t("None. When a new browser or CLI tries to connect to the agent's Control UI, its pairing request appears here.", "Aucune. Quand un nouveau navigateur ou CLI tente de se connecter à la Control UI de l'agent, sa demande d'appairage apparaît ici.")}
+          {t("None. When a new browser or CLI tries to connect to the agent's Control UI, its pairing request appears here.", "Aucune demande. Lorsqu'un nouveau navigateur ou une CLI tente de se connecter à la Control UI de l'agent, sa demande d'appairage s'affiche ici.")}
         </div>
       ) : (
         <div className="mt-2 space-y-2">
@@ -202,7 +202,7 @@ export function Approvals() {
 
       <p className="mt-4 text-[11px] text-[var(--color-fg-mut)]">
         {fr
-          ? <><strong>Accès</strong> : approuver fusionne l&apos;allow-rule proposée dans la policy egress active de l&apos;agent (draft-policy de la gateway via <code>/api/drafts</code>). <strong>Appareil</strong> : approuver appaire l&apos;appareil (<code>openclaw devices</code> via <code>/api/devices</code>). Chaque décision est auditée.</>
+          ? <><strong>Accès</strong> : approuver une demande ajoute l&apos;allow-rule proposée à la policy d&apos;egress active de l&apos;agent (draft-policy de la gateway, via <code>/api/drafts</code>). <strong>Appareil</strong> : approuver une demande appaire l&apos;appareil (<code>openclaw devices</code>, via <code>/api/devices</code>). Chaque décision est auditée.</>
           : <><strong>Access</strong>: approve merges the proposed allow-rule into the agent&apos;s live egress policy (gateway draft-policy via <code>/api/drafts</code>). <strong>Device</strong>: approve pairs the device (<code>openclaw devices</code> via <code>/api/devices</code>). Every decision is audited.</>}
       </p>
     </div>

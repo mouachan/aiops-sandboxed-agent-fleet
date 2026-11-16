@@ -21,7 +21,7 @@ export function SiteHeader({ lang }: { lang: Lang }) {
         <span className="sm:hidden">{tr(lang, "OpenClaw on OpenShift", "OpenClaw sur OpenShift")}</span>
       </Link>
       <div className="ml-auto flex items-center gap-2 text-[0.72rem] text-[var(--color-fg-mut)]">
-        <Link href="/learn/live" title={tr(lang, "Live OpenShell — gateway, sandboxes, policies, logs", "Live OpenShell — gateway, sandboxes, policies, logs en direct")}
+        <Link href="/learn/live" title={tr(lang, "Live OpenShell — gateway, sandboxes, policies, logs", "Live OpenShell : gateway, sandboxes, policies et logs en direct")}
           className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-line-2)] px-2.5 py-1 transition hover:border-[var(--color-nv-dim)] hover:text-[var(--color-nv-bright)]">
           <Activity size={13} /> <span className="hidden sm:inline">Live</span>
         </Link>

@@ -63,9 +63,9 @@ export function FleetOrchestration() {
         <Arrow x1={164} y1={224} x2={204} y2={224} label={t("task", "tâche")} color={CYAN} marker="fa_v" />
 
         {/* orchestrate — a FIXED plan (no model call to plan); each agent gets a prescribed probe */}
-        <Node x={204} y={188} w={160} h={72} cls="fo-violet" stroke={VIOLET} title={t("Orchestrator", "Orchestrateur")} sub={t("fixed plan · one probe each", "plan fixe · un probe chacun")} />
-        <text x={284} y={300} fontSize={9} className="fo-sub" textAnchor="middle">{t("no model call here —", "pas d'appel au modèle ici —")}</text>
-        <text x={284} y={313} fontSize={9} className="fo-sub" textAnchor="middle">{t("agents do the inference", "les agents font l'inférence")}</text>
+        <Node x={204} y={188} w={160} h={72} cls="fo-violet" stroke={VIOLET} title={t("Orchestrator", "Orchestrateur")} sub={t("fixed plan · one probe each", "plan fixe · une probe chacun")} />
+        <text x={284} y={300} fontSize={9} className="fo-sub" textAnchor="middle">{t("no model call here —", "aucun appel au modèle ici :")}</text>
+        <text x={284} y={313} fontSize={9} className="fo-sub" textAnchor="middle">{t("agents do the inference", "l'inférence revient aux agents")}</text>
 
         {/* investigate — 4 sealed telemetry agents, each its own backend */}
         {agents.map((a, i) => {
@@ -80,14 +80,14 @@ export function FleetOrchestration() {
         })}
 
         {/* conclude — the no-egress analyst */}
-        <Node x={wx} y={wy} w={ww} h={wh} cls="fo-amber" stroke={AMBER} title="analyst 🧠" sub={t("no telemetry access · concludes", "sans accès télémétrie · conclut")} />
-        <text x={wx + ww / 2} y={wy + 92} fontSize={9.4} className="fo-sub" textAnchor="middle">{t("→ root cause", "→ cause racine")}</text>
+        <Node x={wx} y={wy} w={ww} h={wh} cls="fo-amber" stroke={AMBER} title="analyst 🧠" sub={t("no telemetry access · concludes", "sans accès à la télémétrie · conclut")} />
+        <text x={wx + ww / 2} y={wy + 92} fontSize={9.4} className="fo-sub" textAnchor="middle">{t("→ root cause", "→ root cause")}</text>
         <text x={wx + ww / 2} y={wy + 108} fontSize={9.4} className="fo-sub" textAnchor="middle">{t("→ recommended fix", "→ correctif recommandé")}</text>
         {/* analyst's verdict back to the human */}
         <Arrow x1={wx + ww / 2} y1={wy + wh} x2={wx + ww / 2} y2={wy + wh + 34} color={AMBER} marker="fa_a" />
-        <text x={wx + ww / 2} y={wy + wh + 50} fontSize={9.6} className="fo-ink" textAnchor="middle" fontWeight={700}>{t("root cause + fix → you approve ✋", "cause + correctif → vous approuvez ✋")}</text>
+        <text x={wx + ww / 2} y={wy + wh + 50} fontSize={9.6} className="fo-ink" textAnchor="middle" fontWeight={700}>{t("root cause + fix → you approve ✋", "root cause + correctif → vous validez ✋")}</text>
 
-        <text x={W / 2} y={H - 14} fontSize={10.3} className="fo-sub" textAnchor="middle">{t("Four sealed specialists read one backend each; a no-egress analyst concludes the root cause — every step governed and audited.", "Quatre spécialistes scellés lisent chacun un backend ; un analyste sans egress conclut sur la cause racine — chaque étape est gouvernée et auditée.")}</text>
+        <text x={W / 2} y={H - 14} fontSize={10.3} className="fo-sub" textAnchor="middle">{t("Four sealed specialists read one backend each; a no-egress analyst concludes the root cause — every step governed and audited.", "Quatre spécialistes isolés lisent chacun un backend ; un analyste sans egress en déduit la root cause. Chaque étape est contrôlée et auditée.")}</text>
       </svg>
     </figure>
   );

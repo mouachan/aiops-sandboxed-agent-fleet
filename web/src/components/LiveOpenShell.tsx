@@ -117,7 +117,7 @@ export function LiveOpenShell() {
   return (
     <figure className="my-6 rounded-xl border border-[var(--color-line)] bg-[var(--color-panel)] p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <figcaption className="text-sm text-[var(--color-fg-mut)]">{t("Live from your gateway — auto-refreshes", "En direct depuis votre gateway, rafraîchi automatiquement")}</figcaption>
+        <figcaption className="text-sm text-[var(--color-fg-mut)]">{t("Live from your gateway — auto-refreshes", "En direct depuis votre gateway, actualisé automatiquement")}</figcaption>
         <button onClick={load} className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-line-2)] px-2.5 py-1 text-[11px] text-[var(--color-fg-mut)] transition hover:text-[var(--color-fg)]">
           <RefreshCw size={12} className={loading ? "animate-spin" : ""} /> {t("Refresh", "Rafraîchir")}
         </button>
@@ -151,7 +151,7 @@ export function LiveOpenShell() {
                 {data.inference.model ? <> · <span className="font-mono">{data.inference.model}</span></> : null}
               </span>
             ) : (
-              <span className="text-[12px] text-[var(--color-fg-mut)]">{fr ? <>non configuré : créez-le dans <em>Configurez votre endpoint d&apos;inférence</em></> : <>not configured — create it in <em>Set Your Inference Endpoint</em></>}</span>
+              <span className="text-[12px] text-[var(--color-fg-mut)]">{fr ? <>non configuré : créez-le dans la leçon <em>Configurer l&apos;endpoint d&apos;inférence</em></> : <>not configured — create it in <em>Set Your Inference Endpoint</em></>}</span>
             )}
             <span className="ml-auto font-mono text-[10px] text-[var(--color-fg-mut)]">
               {data.inference.agent}: {data.inference.attached.length ? t(`attached ${data.inference.attached.join(", ")}`, `attaché : ${data.inference.attached.join(", ")}`) : t("no provider attached", "aucun provider attaché")}
@@ -171,8 +171,8 @@ export function LiveOpenShell() {
           )}
           {fr ? (
             <p className="mt-1.5 text-[10px] text-[var(--color-fg-mut)]">
-              Le provider détient la clé (<strong>valeurs jamais affichées</strong>, seulement les noms des clés). Une sandbox à laquelle il est attaché ne voit qu&apos;un placeholder ;
-              le supervisor substitue la vraie clé en egress{data.inference.endpointHost ? <>, et uniquement vers <code>{data.inference.endpointHost}</code></> : null}.
+              Le provider détient la clé (seuls les noms des clés sont affichés, <strong>jamais leurs valeurs</strong>). Une sandbox à laquelle il est attaché ne voit qu&apos;un placeholder ;
+              le supervisor le remplace par la vraie clé en egress{data.inference.endpointHost ? <>, et uniquement vers <code>{data.inference.endpointHost}</code></> : null}.
             </p>
           ) : (
             <p className="mt-1.5 text-[10px] text-[var(--color-fg-mut)]">
@@ -186,7 +186,7 @@ export function LiveOpenShell() {
       {data && !data.ok ? (
         <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-bg-2)] p-3 text-[12px] text-[var(--color-fg-mut)]">
           {fr
-            ? <>Impossible de joindre la gateway : <code>{data.error}</code>. La stack est-elle démarrée ? (<code>openshell status</code> dans le shell)</>
+            ? <>Impossible de joindre la gateway : <code>{data.error}</code>. La stack est-elle bien démarrée ? (vérifiez avec <code>openshell status</code> dans le shell)</>
             : <>Couldn&apos;t reach the gateway: <code>{data.error}</code> — is the stack up? (<code>openshell status</code> in the shell)</>}
         </div>
       ) : (
@@ -203,7 +203,7 @@ export function LiveOpenShell() {
             </thead>
             <tbody>
               {sandboxes.length === 0 ? (
-                <tr><td colSpan={5} className="px-3 py-4 text-center text-[var(--color-fg-mut)]">{fr ? <>Aucune sandbox pour l&apos;instant. Créez-en une dans <em>Construisez votre agent</em>.</> : <>No sandboxes yet — create one in <em>Build Your Agent</em>.</>}</td></tr>
+                <tr><td colSpan={5} className="px-3 py-4 text-center text-[var(--color-fg-mut)]">{fr ? <>Aucune sandbox pour l&apos;instant. Créez-en une dans la partie <em>Construire votre agent</em>.</> : <>No sandboxes yet — create one in <em>Build Your Agent</em>.</>}</td></tr>
               ) : sandboxes.map((s) => (
                 <tr key={s.name} onClick={() => setSel(s.name === sel ? null : s.name)}
                   className={`cursor-pointer border-t border-[var(--color-line)] transition hover:bg-[var(--color-bg-2)] ${sel === s.name ? "bg-[var(--color-bg-2)]" : ""}`}>
@@ -241,7 +241,7 @@ export function LiveOpenShell() {
               </div>
             )}
             <button onClick={() => setReloadN((n) => n + 1)} className="ml-auto inline-flex items-center gap-1 text-[11px] text-[var(--color-fg-mut)] hover:text-[var(--color-fg)]">
-              <RefreshCw size={11} className={detailLoading ? "animate-spin" : ""} /> {t("reload", "recharger")}
+              <RefreshCw size={11} className={detailLoading ? "animate-spin" : ""} /> {t("reload", "actualiser")}
             </button>
           </div>
           {tab === "decisions" ? (
@@ -250,7 +250,7 @@ export function LiveOpenShell() {
                 <p className="p-2 font-mono text-[11px] text-[var(--color-fg-mut)]">{t("loading…", "chargement…")}</p>
               ) : (() => {
                 const decisions = parseDecisions(detail);
-                if (decisions.length === 0) return <p className="p-2 font-mono text-[11px] text-[var(--color-fg-mut)]">{t("No egress decisions in the recent feed. (The agent hasn't tried to reach anything lately.)", "Aucune décision egress dans le flux récent. (L'agent n'a rien tenté de joindre récemment.)")}</p>;
+                if (decisions.length === 0) return <p className="p-2 font-mono text-[11px] text-[var(--color-fg-mut)]">{t("No egress decisions in the recent feed. (The agent hasn't tried to reach anything lately.)", "Aucune décision d'egress récente : l'agent n'a rien tenté de joindre ces derniers temps.")}</p>;
                 return (
                   <div className="space-y-1">
                     {decisions.map((d, i) => {
@@ -278,7 +278,7 @@ export function LiveOpenShell() {
 
       <p className="mt-2 text-[10px] text-[var(--color-fg-mut)]">
         {fr
-          ? <>Cliquez sur une sandbox pour voir ses <strong>logs/audit</strong> (<code>openshell logs &lt;name&gt; --source …</code>) et sa <strong>policy</strong> complète (<code>openshell policy get &lt;name&gt; --full</code>). Servi en lecture seule via <code>/api/openshell</code>.</>
+          ? <>Cliquez sur une sandbox pour afficher ses <strong>logs/audit</strong> (<code>openshell logs &lt;name&gt; --source …</code>) et sa <strong>policy</strong> complète (<code>openshell policy get &lt;name&gt; --full</code>). Données en lecture seule, fournies par <code>/api/openshell</code>.</>
           : <>Click a sandbox for its <strong>logs/audit</strong> (<code>openshell logs &lt;name&gt; --source …</code>) and full <strong>policy</strong> (<code>openshell policy get &lt;name&gt; --full</code>). Served read-only via <code>/api/openshell</code>.</>}
       </p>
     </figure>

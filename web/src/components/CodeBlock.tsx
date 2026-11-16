@@ -84,7 +84,7 @@ export function CodeBlock({ children }: { children?: ReactNode }) {
             <button
               onClick={() => runInShell(code)}
               className="rounded border border-[var(--color-nv-dim)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-nv-bright)] hover:bg-[var(--color-panel)]"
-              title={t("Run this in the lab shell", "Exécuter ceci dans le shell du lab")}
+              title={t("Run this in the lab shell", "Exécuter cette commande dans le shell du lab")}
             >
               ▶ {t("Run in shell", "Exécuter dans le shell")}
             </button>

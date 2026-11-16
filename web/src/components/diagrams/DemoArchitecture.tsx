@@ -33,7 +33,7 @@ export function DemoArchitecture() {
   ];
   return (
     <figure className="my-6 overflow-hidden rounded-xl border border-[var(--color-line)] bg-[var(--color-panel)]">
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" fontFamily={C.font} role="img" aria-label={t("Demo app and telemetry pipeline", "App de démo et pipeline de télémétrie")}>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" fontFamily={C.font} role="img" aria-label={t("Demo app and telemetry pipeline", "L'application de démo et son pipeline de télémétrie")}>
         <style>{`
           .da-surface{fill:var(--color-panel);} .da-ink{fill:var(--color-fg);} .da-sub{fill:var(--color-fg-mut);}
           .da-phase{fill:var(--color-fg-mut);letter-spacing:.08em;} .da-lane{fill:var(--color-fg);opacity:.025;}
@@ -74,14 +74,14 @@ export function DemoArchitecture() {
 
         {/* the fleet (custom block — cleanly spaced text inside a tall box) */}
         <rect x={792} y={120} width={164} height={160} rx={11} className="da-green" stroke={C.nvidia} strokeWidth={1.6} />
-        <text x={874} y={156} fontSize={12.5} className="da-ink" textAnchor="middle" fontWeight={700}>{t("sealed fleet", "fleet scellée")}</text>
+        <text x={874} y={156} fontSize={12.5} className="da-ink" textAnchor="middle" fontWeight={700}>{t("sealed fleet", "fleet isolée")}</text>
         <text x={874} y={180} fontSize={9.2} className="da-sub" textAnchor="middle">logs · metrics ·</text>
         <text x={874} y={194} fontSize={9.2} className="da-sub" textAnchor="middle">traces · events</text>
-        <text x={874} y={214} fontSize={9} className="da-sub" textAnchor="middle">{t("each reads one backend", "chacun lit un backend")}</text>
+        <text x={874} y={214} fontSize={9} className="da-sub" textAnchor="middle">{t("each reads one backend", "chaque agent lit un backend")}</text>
         <text x={874} y={242} fontSize={10.5} className="da-ink" textAnchor="middle" fontWeight={700}>→ analyst 🧠</text>
-        <text x={874} y={258} fontSize={9} className="da-sub" textAnchor="middle">{t("concludes + recommends", "conclut + recommande")}</text>
+        <text x={874} y={258} fontSize={9} className="da-sub" textAnchor="middle">{t("concludes + recommends", "conclut et recommande")}</text>
 
-        <text x={W / 2} y={H - 12} fontSize={10.3} className="da-sub" textAnchor="middle">{t("One loadgen-driven instrumented app produces all three signals; the sealed fleet reads them per-backend — inject a fault and it shows up everywhere at once.", "Une app instrumentée, pilotée par loadgen, produit les trois signaux ; la fleet scellée les lit par backend — injectez une panne, elle apparaît partout à la fois.")}</text>
+        <text x={W / 2} y={H - 12} fontSize={10.3} className="da-sub" textAnchor="middle">{t("One loadgen-driven instrumented app produces all three signals; the sealed fleet reads them per-backend — inject a fault and it shows up everywhere at once.", "Une app instrumentée, sollicitée par loadgen, émet les trois signaux ; la fleet isolée les lit backend par backend. Une panne injectée se voit partout à la fois.")}</text>
       </svg>
     </figure>
   );

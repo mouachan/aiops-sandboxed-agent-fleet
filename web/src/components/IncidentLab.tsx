@@ -116,7 +116,7 @@ export function IncidentLab() {
   };
 
   const applyFix = async () => {
-    if (!confirm(t("Apply the human-approved remediation?\n  → kubectl scale deploy/payments --replicas=1\n  (restore the real payments dependency the fleet found was down)", "Appliquer le correctif approuvé par un humain ?\n  → kubectl scale deploy/payments --replicas=1\n  (rétablit la vraie dépendance payments que la fleet a trouvée en panne)"))) return;
+    if (!confirm(t("Apply the human-approved remediation?\n  → kubectl scale deploy/payments --replicas=1\n  (restore the real payments dependency the fleet found was down)", "Appliquer le correctif approuvé par un humain ?\n  → kubectl scale deploy/payments --replicas=1\n  (rétablit la dépendance payments, que la fleet a identifiée comme en panne)"))) return;
     await act("fix");
     clearInvestigation();
   };
@@ -141,8 +141,8 @@ export function IncidentLab() {
       <div className="mt-3 flex items-center gap-2 text-sm">
         <span className="text-[var(--color-fg-mut)]">{h?.ns || lab.demoNamespace}/shop:</span>
         {h?.exists ? (h.healthy
-          ? <span className="inline-flex items-center gap-1 text-[var(--color-nv-bright)]"><CheckCircle2 size={14} /> {t("healthy", "sain")}</span>
-          : <span className="inline-flex items-center gap-1 text-[var(--color-rh-bright)]"><XCircle size={14} /> {t("unhealthy", "défaillant")} · {h.errorPct}% {t("errors", "d'erreurs")}{h.fault && h.fault !== "none" ? t(` · fault: ${h.fault}`, ` · panne : ${h.fault}`) : ""}</span>)
+          ? <span className="inline-flex items-center gap-1 text-[var(--color-nv-bright)]"><CheckCircle2 size={14} /> {t("healthy", "opérationnel")}</span>
+          : <span className="inline-flex items-center gap-1 text-[var(--color-rh-bright)]"><XCircle size={14} /> {t("unhealthy", "dégradé")} · {h.errorPct}% {t("errors", "d'erreurs")}{h.fault && h.fault !== "none" ? t(` · fault: ${h.fault}`, ` · fault : ${h.fault}`) : ""}</span>)
           : <span className="text-[var(--color-fg-mut)]">{t("not deployed", "non déployé")}</span>}
       </div>
 
@@ -176,7 +176,7 @@ export function IncidentLab() {
       {/* deploy/undeploy, inject fault, investigate */}
       <div className="mt-3 flex flex-wrap gap-2">
         {h?.exists
-          ? <Btn busy={busy} a="teardown" on={() => { if (confirm(t("Undeploy shop-app + loadgen?", "Supprimer shop-app + loadgen ?"))) act("teardown").then(() => { clearInvestigation(); refresh(); }); }} icon={<Trash2 size={14} />} label={t("Undeploy", "Supprimer l'app")} />
+          ? <Btn busy={busy} a="teardown" on={() => { if (confirm(t("Undeploy shop-app + loadgen?", "Supprimer shop-app et loadgen ?"))) act("teardown").then(() => { clearInvestigation(); refresh(); }); }} icon={<Trash2 size={14} />} label={t("Undeploy", "Supprimer l'app")} />
           : <Btn busy={busy} a="deploy" on={() => act("deploy")} icon={<Rocket size={14} />} label={t("1 · Deploy", "1 · Déployer")} kind="go" />}
         <Btn busy={busy} a="break" on={() => act("break")} icon={<Bug size={14} />} label={t("2 · Inject fault", "2 · Injecter la panne")} kind="warn" disabled={!h?.exists || h?.healthy === false} />
         <Btn busy={busy} a="investigate" on={investigate} icon={<Stethoscope size={14} />} label={t("3 · Investigate (fleet)", "3 · Investiguer (fleet)")} disabled={h?.healthy !== false} />
@@ -185,14 +185,14 @@ export function IncidentLab() {
       {/* animated investigation — each agent's request, live timer, live logs, then findings */}
       {timeline.length > 0 && (
         <div className="mt-4 space-y-2">
-          <div className="text-xs font-semibold text-[var(--color-fg-mut)]">{t("INVESTIGATION — agents invoked in parallel", "INVESTIGATION — agents appelés en parallèle")}{busy === "investigate" ? t(" (live)", " (en direct)") : ""}</div>
+          <div className="text-xs font-semibold text-[var(--color-fg-mut)]">{t("INVESTIGATION — agents invoked in parallel", "INVESTIGATION — agents interrogés en parallèle")}{busy === "investigate" ? t(" (live)", " (en direct)") : ""}</div>
           {timeline.map((x) => (
             <div key={x.agent} className={`rounded-lg border p-2 transition-colors ${x.status === "running" ? "border-[var(--color-nv-dim)] animate-pulse" : "border-[var(--color-line)]"}`}>
               <div className="flex items-center gap-2 text-xs">
                 {x.status === "done" ? <CheckCircle2 size={13} className="text-[var(--color-nv-bright)]" /> : x.status === "running" ? <Loader2 size={13} className="animate-spin text-[var(--color-nv-bright)]" /> : <ChevronRight size={13} className="text-[var(--color-fg-mut)]" />}
                 <span className="font-semibold">{x.agent === "analyst" ? "🧠 analyst" : `🦞 ${x.agent}`}</span>
                 <span className="text-[var(--color-fg-mut)]">· {x.agent === "analyst" ? t("(no telemetry access)", "(aucun accès à la télémétrie)") : (BACKEND[x.agent] || "")}</span>
-                <span className="ml-auto tabular-nums text-[var(--color-fg-mut)]">{x.status === "running" ? `${x.retried ? t("retrying", "réessaie") : x.agent === "analyst" ? t("concluding", "conclut") : t("querying", "interroge")} · ${elapsed(x)}` : `${elapsed(x)}${x.retried ? t(" · retried", " · réessayé") : ""}`}</span>
+                <span className="ml-auto tabular-nums text-[var(--color-fg-mut)]">{x.status === "running" ? `${x.retried ? t("retrying", "nouvelle tentative") : x.agent === "analyst" ? t("concluding", "synthèse en cours") : t("querying", "requête en cours")} · ${elapsed(x)}` : `${elapsed(x)}${x.retried ? t(" · retried", " · relancé") : ""}`}</span>
               </div>
               {x.request && <div className="mt-1 truncate font-mono text-[11px] text-[var(--color-fg-mut)]" title={x.request}>↳ {x.request}</div>}
               {x.agent !== "analyst" && (
@@ -213,7 +213,7 @@ export function IncidentLab() {
         <div className="mt-4 space-y-2 text-sm">
           {inv.answer && (
             <div className="rounded-lg border border-[var(--color-nv-dim)] bg-[var(--color-bg)] p-3">
-              <div className="text-xs font-semibold text-[var(--color-fg-mut)]">{inv.synthesizedBy === "analyst" ? t("🧠 ANALYST — concluded root cause & recommended remediation", "🧠 ANALYST — cause racine identifiée et correctif recommandé") : t("ROOT CAUSE & RECOMMENDED REMEDIATION", "CAUSE RACINE ET CORRECTIF RECOMMANDÉ")}</div>
+              <div className="text-xs font-semibold text-[var(--color-fg-mut)]">{inv.synthesizedBy === "analyst" ? t("🧠 ANALYST — concluded root cause & recommended remediation", "🧠 ANALYST — root cause identifiée et remediation recommandée") : t("ROOT CAUSE & RECOMMENDED REMEDIATION", "ROOT CAUSE ET REMEDIATION RECOMMANDÉE")}</div>
               <pre className="mt-1 whitespace-pre-wrap break-words text-sm">{inv.answer}</pre>
             </div>
           )}
@@ -224,15 +224,15 @@ export function IncidentLab() {
             <p className="mt-1 text-xs text-[var(--color-fg-dim)]">
               {action
                 ? (fr
-                  ? <>La <strong>fleet recommande</strong> : <span className="text-[var(--color-fg)]">{action}</span>. Approuver applique le vrai correctif, <code>kubectl scale deploy/payments --replicas=1</code>, qui rétablit la dépendance. Vous restez responsable du changement qui touche le système en production.</>
+                  ? <>La <strong>fleet recommande</strong> : <span className="text-[var(--color-fg)]">{action}</span>. En approuvant, vous appliquez le vrai correctif, <code>kubectl scale deploy/payments --replicas=1</code>, qui rétablit la dépendance. La décision de modifier le système en production vous appartient.</>
                   : <>The <strong>fleet recommends</strong>: <span className="text-[var(--color-fg)]">{action}</span>. Approving applies the real remediation — <code>kubectl scale deploy/payments --replicas=1</code>, restoring the dependency. You own the change that touches the running system.</>)
                 : (fr
-                  ? <>La fleet n&apos;a pas renvoyé d&apos;action en une ligne (voir ses conclusions ci-dessus). Approuver rétablit la dépendance payments (<code>scale --replicas=1</code>) : c&apos;est le correctif qui revient à l&apos;humain.</>
+                  ? <>La fleet n&apos;a pas renvoyé d&apos;action sur une ligne (voir ses conclusions ci-dessus). En approuvant, vous rétablissez la dépendance payments (<code>scale --replicas=1</code>) : un correctif qui reste du ressort de l&apos;humain.</>
                   : <>The fleet did not return a one-line action (see its findings above). Approving restores the payments dependency (<code>scale --replicas=1</code>) — the human-owned remediation.</>)}
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <Btn busy={busy} a="fix" on={applyFix} icon={<Wrench size={14} />} label={t("Apply remediation ✋", "Appliquer le correctif ✋")} kind="fix" />
-              <span className="text-xs text-[var(--color-fg-mut)]">{t("clears the fault → watch the error rate fall to 0 above", "supprime la panne → regardez le taux d'erreur retomber à 0 ci-dessus")}</span>
+              <span className="text-xs text-[var(--color-fg-mut)]">{t("clears the fault → watch the error rate fall to 0 above", "supprime la panne : le taux d'erreur ci-dessus retombe à 0")}</span>
             </div>
           </div>
           <button onClick={clearInvestigation} className="text-xs text-[var(--color-fg-mut)] hover:text-[var(--color-fg)]">{t("clear this investigation", "effacer cette investigation")}</button>

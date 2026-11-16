@@ -16,7 +16,7 @@ export function ThemeToggle() {
     window.dispatchEvent(new CustomEvent("oclaw:theme", { detail: t }));
   };
   return (
-    <button onClick={toggle} title={t("Toggle light / dark", "Basculer clair / sombre")} aria-label={t("Toggle theme", "Changer de thème")}
+    <button onClick={toggle} title={t("Toggle light / dark", "Passer en mode clair ou sombre")} aria-label={t("Toggle theme", "Changer de thème")}
       className="rounded-full border border-[var(--color-line-2)] p-1.5 text-[var(--color-fg-mut)] hover:text-[var(--color-fg)]">
       {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
     </button>

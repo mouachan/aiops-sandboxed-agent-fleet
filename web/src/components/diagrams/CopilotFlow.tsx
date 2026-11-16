@@ -27,16 +27,16 @@ export function CopilotFlow() {
         <rect x={0} y={0} width={W} height={H} fill={C.bg} />
         <Node x={40} y={120} w={150} fill={C.gray} stroke={C.ctrl} title={t("You 🧑‍💻", "Vous 🧑‍💻")} sub={t("ask in plain English", "posez votre question")} />
         <Node x={250} y={120} w={170} fill={C.greenTint} stroke={C.nvidia} title="Shifty 🦞" sub={t("the OpenClaw agent", "l'agent OpenClaw")} />
-        <Node x={480} y={40} w={170} fill={C.redTint} stroke={C.redhat} title="OpenShift API" sub={t("oc / kube API (read)", "oc / kube API (lecture)")} />
+        <Node x={480} y={40} w={170} fill={C.redTint} stroke={C.redhat} title="OpenShift API" sub={t("oc / kube API (read)", "oc / API kube (lecture)")} />
         <Node x={480} y={196} w={170} fill={C.lav} stroke={C.auth} title={t("Proposed action", "Action proposée")} sub="scale / restart / patch" />
-        <Node x={700} y={120} w={150} fill={C.blue} stroke="#6f8fd0" title={t("You approve ✓", "Vous approuvez ✓")} sub={t("then it acts", "puis il agit")} />
+        <Node x={700} y={120} w={150} fill={C.blue} stroke="#6f8fd0" title={t("You approve ✓", "Vous approuvez ✓")} sub={t("then it acts", "puis l'agent agit")} />
         <Arrow x1={190} y1={152} x2={250} y2={152} label="prompt" />
-        <Arrow x1={420} y1={140} x2={480} y2={92} label={t("inspect", "inspecte")} />
+        <Arrow x1={420} y1={140} x2={480} y2={92} label={t("inspect", "inspecter")} />
         <Arrow x1={480} y1={104} x2={420} y2={150} />
-        <Arrow x1={420} y1={166} x2={480} y2={216} label={t("plan", "planifie")} />
+        <Arrow x1={420} y1={166} x2={480} y2={216} label={t("plan", "planifier")} />
         <Arrow x1={650} y1={216} x2={700} y2={160} label={t("confirm?", "confirmer ?")} />
         <Arrow x1={700} y1={140} x2={650} y2={92} />
-        <text x={W / 2} y={285} fontSize={11} fill={C.sub} textAnchor="middle">{t("Read freely · propose changes · act only after you approve — guardrails from OpenShift RBAC + OpenShell policy.", "Lecture libre · propose des changements · n'agit qu'après votre accord — garde-fous : RBAC OpenShift + policy OpenShell.")}</text>
+        <text x={W / 2} y={285} fontSize={11} fill={C.sub} textAnchor="middle">{t("Read freely · propose changes · act only after you approve — guardrails from OpenShift RBAC + OpenShell policy.", "L'agent lit librement, propose des changements et n'agit qu'avec votre accord — guardrails : RBAC OpenShift et policy OpenShell.")}</text>
       </svg>
     </figure>
   );
