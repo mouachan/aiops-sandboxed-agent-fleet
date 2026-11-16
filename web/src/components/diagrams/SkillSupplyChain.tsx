@@ -46,8 +46,8 @@ export function SkillSupplyChain() {
 
         {/* registry (chokepoint) */}
         <Node x={350} y={150} w={200} h={120} fill={C.white} stroke={C.nvidia} title={t("Private registry 📦", "Registry privé 📦")} sub={t("Verdaccio · in-cluster", "Verdaccio · dans le cluster")} />
-        <text x={450} y={232} fontSize={10.2} fill={C.use} textAnchor="middle" fontWeight={600}>registry.&lt;ns&gt;.svc.cluster.local:4873</text>
-        <text x={450} y={250} fontSize={9.8} fill={C.sub} textAnchor="middle">{t("uplinks npm deps · single egress", "uplink des deps npm · egress unique")}</text>
+        <text x={450} y={246} fontSize={10.2} fill={C.use} textAnchor="middle" fontWeight={600}>registry.&lt;ns&gt;.svc.cluster.local:4873</text>
+        <text x={450} y={262} fontSize={9.8} fill={C.sub} textAnchor="middle">{t("uplinks npm deps · single egress", "uplink des deps npm · egress unique")}</text>
 
         {/* publish arrows into registry */}
         <Arrow x1={210} y1={118} x2={350} y2={178} label="npm publish" color={C.green} lx={280} ly={134} />
@@ -56,7 +56,7 @@ export function SkillSupplyChain() {
         {/* install arrow to agent */}
         <Node x={690} y={150} w={180} h={76} fill={C.greenTint} stroke={C.nvidia} title={t("Agent sandbox 🦞", "Sandbox de l'agent 🦞")} sub={t("shifty — Landlock-sealed", "shifty — scellée par Landlock")} />
         <Arrow x1={550} y1={196} x2={690} y2={188} label="openclaw plugins install ✓" color={C.green} lx={620} ly={176} />
-        <text x={780} y={244} fontSize={9.8} fill={C.sub} textAnchor="middle">{t("runs the new tool, governed like any other", "exécute l'outil, gouverné comme les autres")}</text>
+        <text x={772} y={244} fontSize={9.8} fill={C.sub} textAnchor="end">{t("runs the new tool, governed like any other", "exécute l'outil, gouverné comme les autres")}</text>
 
         {/* blocked direct internet path */}
         <Node x={690} y={300} w={180} h={48} fill={C.redTint} stroke={C.red} title={t("ClawHub / public npm 🌐", "ClawHub / npm public 🌐")} sub="" dash />
