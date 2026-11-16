@@ -432,11 +432,19 @@ export async function startPortal(cfg, store, { port = cfg.port, host } = {}) {
     const tok = bearer || cookies(req).lab_portal_admin || "";
     return Boolean(tok) && safeEqual(tok, cfg.adminToken);
   };
-  // Same-origin check for admin POSTs (on top of the SameSite=Strict cookie).
+  // Same-origin check for admin POSTs (on top of the SameSite=Strict cookie). Browsers send
+  // Sec-Fetch-Site; our pages are no-referrer, so their form posts carry `Origin: null` and the
+  // Origin header alone can't tell same-origin from cross-site. Scripts (bearer token) send neither.
   const sameOrigin = (req) => {
+    const site = req.headers["sec-fetch-site"];
+    if (site) return site === "same-origin" || site === "none";
     const origin = req.headers.origin;
-    if (!origin) return true;
+    if (!origin || origin === "null") return true;
     try { return new URL(origin).host === req.headers.host; } catch { return false; }
+  };
+  const forbidden = (req, res, what) => {
+    console.log(`admin ${what} refused: ${isAdmin(req) ? "cross-site request" : "not authenticated"}`);
+    return send(res, 403, messagePage(cfg, "Forbidden", "Admin only. Reload the admin page and try again."));
   };
 
   const handle = async (req, res) => {
@@ -497,7 +505,7 @@ export async function startPortal(cfg, store, { port = cfg.port, host } = {}) {
       return send(res, 200, adminPage(cfg, req.headers.host, registry, attendees, pool(), url.searchParams.get("done") || ""));
     }
     if (path === "/admin/release" && req.method === "POST") {
-      if (!isAdmin(req) || !sameOrigin(req)) return send(res, 403, messagePage(cfg, "Forbidden", "Admin only."));
+      if (!isAdmin(req) || !sameOrigin(req)) return forbidden(req, res, "release");
       const user = String((await readBody(req)).get("user") || "");
       try {
         await registry.release(user);
@@ -509,7 +517,7 @@ export async function startPortal(cfg, store, { port = cfg.port, host } = {}) {
       return send(res, 303, "", { Location: `/admin?done=${encodeURIComponent(`Released ${user}.`)}` });
     }
     if ((path === "/admin/unreserve" || path === "/admin/reserve") && req.method === "POST") {
-      if (!isAdmin(req) || !sameOrigin(req)) return send(res, 403, messagePage(cfg, "Forbidden", "Admin only."));
+      if (!isAdmin(req) || !sameOrigin(req)) return forbidden(req, res, path.slice(7));
       const user = String((await readBody(req)).get("user") || "");
       if (!cfg.reserved.includes(user)) return send(res, 400, messagePage(cfg, "Not reserved", "Only reserved environments can be made available or reserved again."));
       const available = path === "/admin/unreserve";

@@ -145,8 +145,15 @@ describe("lab portal", () => {
       headers: { authorization: `Bearer ${ADMIN}`, origin: "https://evil.example" },
     });
     assert.equal(cross.status, 403);
+    const crossSite = await fetch(`${p.url}/admin/release`, {
+      method: "POST", body: form(), redirect: "manual",
+      headers: { authorization: `Bearer ${ADMIN}`, "sec-fetch-site": "cross-site", origin: "null" },
+    });
+    assert.equal(crossSite.status, 403);
+    // A real browser form post from our (no-referrer) admin page: Origin is "null".
     const ok = await fetch(`${p.url}/admin/release`, {
-      method: "POST", body: form(), redirect: "manual", headers: { authorization: `Bearer ${ADMIN}` },
+      method: "POST", body: form(), redirect: "manual",
+      headers: { authorization: `Bearer ${ADMIN}`, origin: "null", "sec-fetch-site": "same-origin" },
     });
     assert.equal(ok.status, 303);
     assert.equal((await fetch(`${p.url}/u/${old.id}`)).status, 404);
