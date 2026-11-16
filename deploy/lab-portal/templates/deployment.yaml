@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lab-portal
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "lab-portal.labels" . | nindent 4 }}
+spec:
+  # The assignments are serialized in this one process: never more than one replica.
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: lab-portal
+  template:
+    metadata:
+      labels:
+        {{- include "lab-portal.labels" . | nindent 8 }}
+      annotations:
+        lab.nemoclaw.io/app-checksum: {{ .Files.Get "files/server.mjs" | sha256sum | trunc 16 | quote }}
+        lab.nemoclaw.io/secret-checksum: {{ .Values.secretChecksum | quote }}
+    spec:
+      serviceAccountName: lab-portal
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: portal
+          image: {{ .Values.image | quote }}
+          imagePullPolicy: IfNotPresent
+          command: ["node", "/app/server.mjs"]
+          env:
+            - { name: PORT, value: "8080" }
+            - { name: PORTAL_TITLE, value: {{ .Values.title | quote }} }
+            - { name: PORTAL_RESERVED, value: {{ join "," .Values.reservedUsers | quote }} }
+            - { name: PORTAL_STATE_CONFIGMAP, value: {{ .Values.stateConfigMap | quote }} }
+            - name: PORTAL_NAMESPACE
+              valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
+          envFrom:
+            - secretRef: { name: {{ .Values.existingSecret | quote }} }
+          ports:
+            - { name: http, containerPort: 8080 }
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 20
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - { name: app, mountPath: /app, readOnly: true }
+      volumes:
+        - name: app
+          configMap: { name: lab-portal-app }

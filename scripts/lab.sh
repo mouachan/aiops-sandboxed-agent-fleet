@@ -14,6 +14,10 @@
 #   lab.sh down <N|all|users...> [--from M] [--shared]
 #                                          remove attendees (sandboxes, release, both namespaces);
 #                                          --shared also removes lab-shared and the Grafana release
+#   lab.sh portal up|info|list|qr|reset|down
+#                                          self-service sign-up (namespace lab-portal): attendees scan
+#                                          a QR code, enter their email + the event code and get the
+#                                          next free environment; never touches the environments
 #
 # Per attendee <u>: namespaces <u>-openshell (gateway, registry, workshop, sandboxes) and
 # <u>-demo (demo app), Helm release `nemoclaw` in <u>-openshell (chart/values-lab.yaml).
@@ -28,7 +32,8 @@
 #   LAB_USER_PREFIX (user), LAB_NODE_SELECTOR (node-role.kubernetes.io/lab= ; "none" = off;
 #   ignored when no node carries the label), LAB_SKIP_OBSERVABILITY=1, LAB_DEMO_APP=false,
 #   LAB_HELM_TIMEOUT (15m), LAB_PREPULL_TIMEOUT (1800s), MONITORING_GRAFANA_PASSWORD,
-#   CLUSTER_APPS_DOMAIN, AGENT_SANDBOX_MIGRATE=1.
+#   CLUSTER_APPS_DOMAIN, AGENT_SANDBOX_MIGRATE=1, LAB_PORTAL_RESERVED (user01: never handed out by
+#   the portal; space/comma-separated, empty = none).
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SELF="$HERE/$(basename "${BASH_SOURCE[0]}")"
@@ -380,6 +385,134 @@ down() {
 }
 
 # --------------------------------------------------------------------------------------
+# portal: self-service sign-up (deploy/lab-portal). Own namespace and release; it only reads
+# the attendees' access Secrets (through `urls --csv`) and never changes their environments.
+# --------------------------------------------------------------------------------------
+PORTAL_NS="lab-portal"
+PORTAL_ENV="$LAB_DIR/portal.env"
+
+# Event code (6 unambiguous characters) + admin token, generated once and kept in .lab/.
+portal_secrets() {
+  if [[ ! -s "$PORTAL_ENV" ]]; then
+    (umask 077
+     printf 'PORTAL_EVENT_CODE=%s\nPORTAL_ADMIN_TOKEN=%s\n' \
+       "$(openssl rand -base64 48 | tr -dc 'ABCDEFGHJKMNPQRSTUVWXYZ23456789' | head -c 6)" \
+       "$(openssl rand -hex 24)" > "$PORTAL_ENV")
+  fi
+  # shellcheck source=/dev/null
+  source "$PORTAL_ENV"
+}
+
+portal_host() {
+  oc -n "$PORTAL_NS" get route lab-portal -o jsonpath='{.spec.host}' 2>/dev/null || true
+}
+
+portal_up() {
+  local reserved sum csv="$LAB_DIR/attendees.csv"
+  init_domain
+  urls --csv
+  (($(wc -l < "$csv") > 1)) || die "no attendee found — deploy them first: $0 up <N>"
+  portal_secrets
+  ensure_namespace "$PORTAL_NS" app.kubernetes.io/part-of=nemoclaw lab.nemoclaw.io/role=portal
+  # The portal owns this ConfigMap's content (the assignments): create it once, never overwrite.
+  oc -n "$PORTAL_NS" get configmap lab-portal-state >/dev/null 2>&1 \
+    || oc -n "$PORTAL_NS" create configmap lab-portal-state >/dev/null
+  (
+    PORTAL_ATTENDEES_CSV="$(cat "$csv")"
+    export PORTAL_ATTENDEES_CSV PORTAL_EVENT_CODE PORTAL_ADMIN_TOKEN
+    apply_secret_from_env "$PORTAL_NS" lab-portal PORTAL_EVENT_CODE PORTAL_ADMIN_TOKEN PORTAL_ATTENDEES_CSV
+  )
+  sum="$(cat "$csv" "$PORTAL_ENV" | openssl dgst -sha256 | awk '{print substr($NF, 1, 16)}')"
+  reserved="$(tr ', ' '\n\n' <<<"${LAB_PORTAL_RESERVED-${PREFIX}01}" | { grep -v '^$' || true; } | jq -R . | jq -sc .)"
+  log "Installing the attendee portal (namespace ${PORTAL_NS}, reserved: $(jq -r 'join(",")' <<<"$reserved"))"
+  helm upgrade --install lab-portal "$REPO_ROOT/deploy/lab-portal/" -n "$PORTAL_NS" \
+    --set clusterAppsDomain="$LAB_DOMAIN" \
+    --set-json "reservedUsers=${reserved}" \
+    --set-string secretChecksum="$sum" \
+    --wait --timeout 5m
+  portal_info
+}
+
+portal_info() {
+  local host; host="$(portal_host)"
+  [[ -n "$host" ]] || die "the portal is not deployed — run: $0 portal up"
+  [[ -s "$PORTAL_ENV" ]] || die "$PORTAL_ENV is missing — run: $0 portal up"
+  portal_secrets
+  log "Join URL (QR code): https://${host}/"
+  log "Event code:         ${PORTAL_EVENT_CODE}"
+  log "Admin page:         https://${host}/admin?token=${PORTAL_ADMIN_TOKEN}"
+  log "Table card:         $0 portal qr"
+}
+
+portal_list() {
+  local state
+  state="$(oc -n "$PORTAL_NS" get configmap lab-portal-state -o jsonpath='{.data.state\.json}' 2>/dev/null)" \
+    || die "the portal is not deployed — run: $0 portal up"
+  [[ -n "$state" ]] || { log "No attendee registered yet."; return 0; }
+  jq -r '(.assignments // {}) | to_entries | sort_by(.key)
+         | (["USER", "EMAIL", "ASSIGNED (UTC)"], (.[] | [.key, .value.email, .value.at[0:16]])) | @tsv' <<<"$state" \
+    | column -t -s $'\t'
+}
+
+# Printable table card with the QR code (qrencode in a throwaway container).
+portal_qr() {
+  local host svg card="$LAB_DIR/portal-card.html"
+  require_cmd podman
+  host="$(portal_host)"
+  [[ -n "$host" ]] || die "the portal is not deployed — run: $0 portal up"
+  portal_secrets
+  # shellcheck disable=SC2016  # $1 is expanded inside the container
+  svg="$(podman run --rm docker.io/library/alpine:3.22 sh -c \
+    'apk add -q --no-cache libqrencode-tools >/dev/null && qrencode -t SVG --svg-path -m 2 -o - "$1"' _ "https://${host}/")"
+  [[ "$svg" == *"<svg"* ]] || die "QR code generation failed"
+  printf '%s\n' "$svg" > "$LAB_DIR/portal-qr.svg"
+  cat > "$card" <<EOF
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Lab sign-up card</title>
+<style>
+  body{margin:0;font:18px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;color:#151515;background:#fff}
+  .card{width:180mm;margin:12mm auto;padding:12mm;border:2px solid #151515;border-radius:6mm;text-align:center}
+  h1{font-size:30px;margin:0 0 4mm}
+  .qr{width:110mm;height:110mm;margin:4mm auto}
+  .qr svg{width:100%;height:100%}
+  .url{font:600 18px ui-monospace,Menlo,monospace;word-break:break-all}
+  .code{display:inline-block;margin-top:6mm;padding:3mm 6mm;border:2px dashed #ee0000;border-radius:3mm;font:700 34px ui-monospace,Menlo,monospace;letter-spacing:.2em}
+  p{margin:2mm 0}
+  @media print{.card{margin:0 auto;page-break-after:always}}
+</style></head><body>
+<div class="card">
+  <h1>Get your lab environment</h1>
+  <p>Scan, enter your email and the event code.</p>
+  <div class="qr">$(sed -n '/<svg/,$p' "$LAB_DIR/portal-qr.svg")</div>
+  <p class="url">https://${host}/</p>
+  <p>Event code</p>
+  <div class="code">${PORTAL_EVENT_CODE}</div>
+</div>
+</body></html>
+EOF
+  log "Wrote ${card} (print one per table) and ${LAB_DIR}/portal-qr.svg"
+}
+
+# Forget every assignment (e.g. after a dry run). Attendees' environments are untouched.
+portal_reset() {
+  oc -n "$PORTAL_NS" get deploy lab-portal >/dev/null 2>&1 || die "the portal is not deployed — run: $0 portal up"
+  oc -n "$PORTAL_NS" scale deploy/lab-portal --replicas=0 >/dev/null
+  oc -n "$PORTAL_NS" wait --for=delete pod -l app.kubernetes.io/name=lab-portal --timeout=120s >/dev/null 2>&1 || true
+  oc -n "$PORTAL_NS" delete configmap lab-portal-state --ignore-not-found >/dev/null
+  oc -n "$PORTAL_NS" create configmap lab-portal-state >/dev/null
+  oc -n "$PORTAL_NS" scale deploy/lab-portal --replicas=1 >/dev/null
+  oc -n "$PORTAL_NS" rollout status deploy/lab-portal --timeout=180s >/dev/null
+  log "Portal reset: no attendee registered."
+}
+
+# Removes the portal and every email it holds (the namespace). .lab/portal.env (event code) is
+# kept: delete it to get a new code on the next `portal up`.
+portal_down() {
+  helm uninstall lab-portal -n "$PORTAL_NS" >/dev/null 2>&1 || true
+  oc delete namespace "$PORTAL_NS" --ignore-not-found >/dev/null
+  log "Portal removed (namespace ${PORTAL_NS}, assignments included)."
+}
+
+# --------------------------------------------------------------------------------------
 cmd="$1"; shift
 case "$cmd" in
   shared) shared ;;
@@ -427,5 +560,16 @@ case "$cmd" in
   status) status ;;
   urls) urls "$@" ;;
   down) (($#)) || die "usage: lab.sh down <N|all|users...> [--from M] [--shared]"; down "$@" ;;
+  portal)
+    case "${1:-}" in
+      up) portal_up ;;
+      info) portal_info ;;
+      list) portal_list ;;
+      qr) portal_qr ;;
+      reset) portal_reset ;;
+      down) portal_down ;;
+      *) die "usage: lab.sh portal up|info|list|qr|reset|down" ;;
+    esac
+    ;;
   *) usage; exit 1 ;;
 esac

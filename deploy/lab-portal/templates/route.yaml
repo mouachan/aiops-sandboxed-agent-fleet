@@ -1,0 +1,14 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: lab-portal
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "lab-portal.labels" . | nindent 4 }}
+spec:
+  host: {{ include "lab-portal.host" . | quote }}
+  to: { kind: Service, name: lab-portal }
+  port: { targetPort: http }
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

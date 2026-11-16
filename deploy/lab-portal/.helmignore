@@ -1,0 +1,2 @@
+# Tests run with `node --test deploy/lab-portal/test/*.test.mjs`, they are not part of the chart.
+test/

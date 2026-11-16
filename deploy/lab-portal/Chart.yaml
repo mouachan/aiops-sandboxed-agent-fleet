@@ -1,0 +1,6 @@
+apiVersion: v2
+name: lab-portal
+description: Self-service attendee sign-up for the multi-attendee lab (QR code → email + event code → next free userNN)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

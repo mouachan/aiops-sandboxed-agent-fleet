@@ -1,0 +1,33 @@
+# Installed by `scripts/lab.sh portal up` into its own namespace (lab-portal), apart from the
+# attendees' environments:
+#   helm upgrade --install lab-portal deploy/lab-portal -n lab-portal --set clusterAppsDomain=<apps-domain>
+# lab.sh creates, outside Helm:
+#   - Secret `lab-portal`: PORTAL_EVENT_CODE, PORTAL_ADMIN_TOKEN, PORTAL_ATTENDEES_CSV (.lab/attendees.csv)
+#   - ConfigMap `lab-portal-state`: the assignments (key state.json), written by the portal itself,
+#     so a `helm upgrade` never resets them.
+
+# Required: the cluster apps domain (the Route host defaults to join.<clusterAppsDomain>,
+# covered by the default wildcard certificate).
+clusterAppsDomain: ""
+host: ""
+
+title: Sandboxed Agent Fleet Lab
+
+# Attendees the portal never hands out (kept for facilitators and tests).
+reservedUsers: [user01]
+
+existingSecret: lab-portal
+stateConfigMap: lab-portal-state
+
+# Set by lab.sh to a hash of the Secret content, so the pod restarts when it changes.
+secretChecksum: ""
+
+# Stock Red Hat UBI Node.js 24 image, the code (files/server.mjs) is mounted from a ConfigMap.
+image: registry.access.redhat.com/ubi9/nodejs-24-minimal:1-1794493509@sha256:ea0ea1db6a8cce73129156de5153bd34e2d176162e7511343b3136d6f7e2a318
+
+resources:
+  requests: { cpu: 10m, memory: 48Mi }
+  limits: { memory: 128Mi }
+
+nodeSelector: {}
+tolerations: []

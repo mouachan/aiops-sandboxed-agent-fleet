@@ -216,7 +216,7 @@ scripts/lab-smoke.sh                 # health of every attendee
 scripts/lab.sh urls --csv            # one row per attendee: workshop URL, OpenClaw UI, Grafana
 ```
 
-**4. Open the workshop.** Single instance: `https://workshop-openshell.<apps-domain>/`. Lab: each attendee gets their own row of `.lab/attendees.csv`.
+**4. Open the workshop.** Single instance: `https://workshop-openshell.<apps-domain>/`. Lab: each attendee gets their own row of `.lab/attendees.csv`, or picks up an environment by scanning a QR code (`scripts/lab.sh portal up`).
 
 ## 👥 Run it as a hands-on lab
 
@@ -242,7 +242,8 @@ scripts/lab.sh urls --csv            # .lab/attendees.csv (the URL contains the 
 | Repair one attendee (URL and password unchanged) | `scripts/lab.sh user user07` |
 | After a cluster stop/start | `scripts/maas.sh up` then `scripts/lab.sh wake` |
 | Push a new model key or endpoint | `LAB_INFERENCE_UPDATE=1 scripts/lab.sh up N` (then attendees restart their OpenClaw gateway) |
-| Tear down | `scripts/lab.sh down all [--shared]` · `scripts/maas.sh down` |
+| Self-service sign-up: QR code → email + event code → next free environment | `scripts/lab.sh portal up` · `portal qr` (table card) · `portal list` |
+| Tear down | `scripts/lab.sh down all [--shared]` · `scripts/lab.sh portal down` · `scripts/maas.sh down` |
 
 Sizing, capacity planning and troubleshooting are in the **[Administrator Guide](docs/ADMIN-GUIDE.md)**; attendees get the **[Attendee Guide](docs/USER-GUIDE.md)**.
 

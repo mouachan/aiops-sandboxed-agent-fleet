@@ -1,0 +1,21 @@
+# Only the OpenShift router reaches the portal. Egress stays open: the portal talks to the
+# Kubernetes API (its state ConfigMap), and nothing else.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: lab-portal-ingress
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "lab-portal.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: lab-portal
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              policy-group.network.openshift.io/ingress: ""
+      ports:
+        - { protocol: TCP, port: 8080 }

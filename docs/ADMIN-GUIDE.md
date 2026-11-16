@@ -250,7 +250,33 @@ attached sandbox: fleet agents start a fresh process per turn and pick it up, bu
 running OpenClaw gateway (`shifty`) keeps the old one until restarted (step 2 of the **Configure**
 lesson). Avoid it during a session.
 
-Hand each attendee **only their own row** of `.lab/attendees.csv` (the URL contains their access token).
+Hand each attendee **only their own row** of `.lab/attendees.csv` (the URL contains their access token),
+or let them pick up an environment themselves with the sign-up portal below.
+
+### Self-service sign-up (QR code)
+
+```bash
+scripts/lab.sh portal up             # namespace lab-portal; prints the join URL, event code and admin link
+scripts/lab.sh portal qr             # .lab/portal-card.html: QR code + event code, print one per table
+```
+
+An attendee scans the QR code (`https://join.<apps-domain>/`), enters their email and the event code, and
+gets the next free environment on a page with all their links (workshop with its token, OpenClaw UI and
+password, Grafana) and the first steps. No email is sent: the page is the delivery. The same email always
+gets the same environment back, so a closed tab or another device is not a problem. `user01` is never
+handed out (`LAB_PORTAL_RESERVED`, space/comma-separated, empty = none).
+
+- The portal has its own namespace and Helm release (`deploy/lab-portal`, stock UBI Node.js image, no
+  build). It serves `.lab/attendees.csv`, refreshed by every `portal up`, and never changes an attendee's
+  environment. Re-run `portal up` after `lab.sh user`/`up` created or reset an attendee.
+- Assignments live in ConfigMap `lab-portal/lab-portal-state` (no volume, so no extra EBS attachment):
+  they survive a pod restart and a `portal up`.
+- The event code (6 characters, kept in `.lab/portal.env`) stops a photo of the QR code from emptying the
+  pool. One address gets 30 wrong codes per 5 minutes, enough for a room behind one NAT.
+- `portal list` shows who has which environment. The admin page (link from `portal info`) also releases
+  an environment for someone else; it does not reset the environment itself (`lab.sh user userNN`).
+- `portal reset` forgets every assignment (after a dry run). `portal down` deletes the namespace, emails
+  included; also delete `.lab/portal.env` to get a new event code.
 
 ### Deploying over an earlier installation
 
@@ -284,6 +310,8 @@ single-instance `deploy.sh` and the original upstream version are a different st
 | Task | Command |
 |---|---|
 | Overall health | `scripts/lab.sh status` / `scripts/lab-smoke.sh` |
+| Who has which environment (sign-up portal) | `scripts/lab.sh portal list`, or the admin page (`scripts/lab.sh portal info`) |
+| An attendee lost their page | They scan the QR code again with the same email and the event code |
 | One attendee is broken | `scripts/lab.sh user userNN` (redeploys, keeps their token and password) |
 | After a cluster stop/start | `scripts/maas.sh up` (recreates the stopped GPU node, ~20 min), then `scripts/lab.sh wake` (starts every Stopped sandbox, ~2 min for 9 attendees), then `scripts/lab-smoke.sh` |
 | Rebuild one attendee's fleet | `oc -n userNN-openshell exec deploy/workshop -c workshop -- env FLEET_RECREATE=1 bash /app/scripts/fleet.sh up /app/fleet.txt` |
@@ -349,6 +377,7 @@ oc label node <new-node> node-role.kubernetes.io/lab=
 ```bash
 scripts/lab.sh down all              # every attendee (sandboxes, releases, namespaces)
 scripts/lab.sh down all --shared     # + lab-shared and the shared Grafana
+scripts/lab.sh portal down           # sign-up portal and the emails it holds
 scripts/maas.sh down                 # model + MaaS objects, GPU MachineSets scaled to 0 (stops GPU cost)
 scripts/cleanup.sh                   # single-instance stack + observability releases
 ```

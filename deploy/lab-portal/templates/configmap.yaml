@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lab-portal-app
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "lab-portal.labels" . | nindent 4 }}
+data:
+  server.mjs: |
+{{ .Files.Get "files/server.mjs" | indent 4 }}

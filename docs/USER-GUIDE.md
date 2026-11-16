@@ -10,7 +10,9 @@ Everything happens in your browser. You don't need an OpenShift account, a CLI o
 
 ## 1. What you receive
 
-Your facilitator gives you one line with:
+Scan the QR code on your table, enter your email and the event code shown next to it: you get your own
+page with everything below (or your facilitator gives it to you directly). Bookmark it. Lost it? Scan the
+QR code again with the same email: you get the same environment back.
 
 | Item | What it is |
 |---|---|
