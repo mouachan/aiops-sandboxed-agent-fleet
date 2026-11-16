@@ -1,23 +1,23 @@
-La fleet lancée, voici l'ensemble sur une seule page : chaque agent, son état Ready ou non, et l'**egress exact que sa policy autorise**. C'est ici que la gouvernance devient quelque chose que vous pouvez *voir* : côte à côte, la policy de chaque agent est **propre à son outil**.
+Une fois la fleet lancée, cette page la présente en entier : chaque agent, son état (Ready ou non) et l'**egress exact qu'autorise sa policy**. La gouvernance devient ici concrète, *visible* : en comparant les agents côte à côte, vous constatez que chaque policy est **propre à son outil**.
 
 <FleetView />
 
-## Ce que vous voyez
+## Ce que montre la page
 
-Chaque carte est un agent, lu en direct depuis le cluster :
+Chaque carte correspond à un agent, dont les informations sont lues en direct dans le cluster :
 
-- **Statut** : `Ready` signifie que la gateway a démarré la sandbox et chargé sa policy.
-- **Peut joindre** : tiré directement de la policy (de base) de l'agent (`openshell policy get <agent> --base`, sans l'endpoint d'inférence qu'y ajoute le provider attaché). Tous les agents partagent le **registry** interne au cluster (pour pouvoir installer leur skill) ; au-delà :
-  - `logs` joint **Loki** et rien d'autre,
-  - `metrics` joint **Prometheus** et rien d'autre,
-  - `traces` joint **Tempo** et rien d'autre,
-  - `events` joint **Loki** (le flux d'events Kubernetes) et rien d'autre,
-  - `analyst` ne joint **rien** : il se contente de conclure.
+- **État** : `Ready` signifie que la gateway a démarré la sandbox et que sa policy est chargée.
+- **Peut joindre** : la liste est tirée directement de la policy de base de l'agent (`openshell policy get <agent> --base`), c'est-à-dire sans l'endpoint d'inférence qu'y ajoute le provider attaché. Tous les agents ont accès au **registry** interne au cluster, pour pouvoir installer leur skill. Au-delà :
+  - `logs` n'accède qu'à **Loki** ;
+  - `metrics` n'accède qu'à **Prometheus** ;
+  - `traces` n'accède qu'à **Tempo** ;
+  - `events` n'accède qu'à **Loki** (pour le flux d'events Kubernetes) ;
+  - `analyst` n'accède à **rien** : il se contente de conclure.
 
-Pas de confiance sur parole ici. Si l'agent `metrics` tentait d'interroger Loki, le proxy du supervisor refuserait, et vous verriez ce refus dans l'onglet **Décisions de policy** de la page [Live](/learn/live), attribué à l'agent et à la règle. Le rayon d'impact de chaque agent correspond exactement à sa mission.
+Rien ne repose ici sur la bonne volonté des agents. Si l'agent `metrics` tentait d'interroger Loki, le proxy du supervisor refuserait la requête, et ce refus apparaîtrait dans l'onglet **Décisions de policy** de la page [Live](/learn/live), avec l'agent et la règle en cause. Le blast radius (périmètre d'impact) de chaque agent se limite exactement à sa mission.
 
-<Callout type="rh" title="Voici la réponse à « puis-je faire confiance à une fleet d'agents ? »">
-Pas la « confiance » comme une impression, mais la confiance comme quelque chose que vous <strong>lisez sur une page</strong>. Chaque capacité de chaque agent (son outil) et chaque endroit qu'il peut joindre (son egress) sont explicites, propres à chaque agent et auditables. Ajoutez un dixième agent : le tableau reste tout aussi lisible.
+<Callout type="rh" title="Peut-on faire confiance à une fleet d'agents ? Voici la réponse">
+Il ne s'agit pas d'une confiance fondée sur une impression, mais d'une confiance qui se <strong>lit sur une page</strong>. Chaque capacité d'un agent (son outil) et chaque destination qu'il peut joindre (son egress) sont explicites, définies agent par agent, et auditables. Ajoutez un dixième agent : le tableau reste tout aussi lisible.
 </Callout>
 
-La fleet est en place et ses limites sont prouvées. Prochaine étape : la piloter. Confiez-lui un incident et regardez le chef d'orchestre répartir le travail.
+La fleet est en place, et ses limites sont vérifiables. Prochaine étape : la mettre au travail. Confiez-lui un incident et observez le chef d'orchestre répartir les tâches.

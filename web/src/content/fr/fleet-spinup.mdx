@@ -1,8 +1,8 @@
-Vous ne voulez pas refaire *Créez votre agent* → *Donnez-lui un cerveau* → *Identité et soul* à la main pour chaque spécialiste. La fleet est donc décrite dans **une seule spec** et lancée par **un seul script** : créer, restreindre la policy, déposer la persona, en boucle.
+Pas question de refaire à la main *Créer votre agent* → *Brancher le modèle* → *Identité et personnalité* pour chaque spécialiste. La fleet est donc décrite dans **un seul fichier de spécification** et lancée par **un seul script**, qui enchaîne en boucle la création de la sandbox, la restriction de la policy et le dépôt de la persona.
 
-## La spec : une ligne par agent
+## La spécification : une ligne par agent
 
-`fleet.txt` contient toute la fleet dans un seul fichier : **un agent par ligne, trois colonnes séparées par des espaces** :
+Le fichier `fleet.txt` décrit toute la fleet, à raison d'**un agent par ligne, sur trois colonnes séparées par des espaces** :
 
 ```text
 # name      backend(host:port, or "-")                                              skill(@scope/name, or "-")
@@ -13,71 +13,76 @@ events      logging-loki-gateway-http.openshift-logging.svc.cluster.local:8080  
 analyst     -                                                                       -
 ```
 
-Chaque colonne :
+Le rôle de chaque colonne :
 
-- **`name`** : le nom de l'agent. C'est aussi le dossier `manifests/openclaw/fleet-roles/<name>/`, où se trouvent ses `IDENTITY.md` et `SOUL.md`. Ainsi, `logs` devient une sandbox nommée `logs`, avec la persona de `fleet-roles/logs/`.
-- **`backend`** : l'**unique** `host:port` qu'autorisera la policy d'egress de cet agent (son seul outil). La gateway du Loki Operator `:8080` pour l'agent logs, le **port multi-tenant `:9092`** de Thanos Querier pour metrics (il ne répond qu'aux requêtes limitées à un namespace, `?namespace=…`, et vérifie que l'appelant a le droit de lire ce namespace), la gateway Tempo `:8080` pour traces, et à nouveau la gateway Loki pour `events` (qui lit le flux d'events Kubernetes que votre propre event-exporter envoie dans Loki). Utilisez **`-`** pour *aucun egress* : c'est le cas de l'`analyst`, qui ne fait que raisonner sur ce que les autres ont trouvé.
-- **`skill`** : un skill optionnel du registry, à installer comme outil à part entière (par ex. un skill `@workshop/promql` qui fournit `promql(query)` au lieu d'un `curl` fait main). **`-`** signifie aucun : l'agent fonctionne quand même, en interrogeant son backend selon les instructions de son `SOUL.md`. Publiez un skill avec le parcours *Skills et gouvernance*, puis mettez `@workshop/<name>` dans cette colonne.
+- **`name`** : le nom de l'agent. C'est aussi le nom du dossier `manifests/openclaw/fleet-roles/<name>/`, qui contient ses fichiers `IDENTITY.md` et `SOUL.md`. La ligne `logs` donne ainsi une sandbox nommée `logs`, dotée de la persona définie dans `fleet-roles/logs/`.
+- **`backend`** : l'**unique** `host:port` qu'autorisera la policy d'egress de l'agent (son seul outil). Il s'agit de la gateway du Loki Operator (`:8080`) pour l'agent logs, du **port multi-tenant `:9092`** de Thanos Querier pour metrics (ce port ne répond qu'aux requêtes limitées à un namespace, `?namespace=…`, et vérifie que l'appelant a le droit de lire ce namespace), de la gateway Tempo (`:8080`) pour traces, et de nouveau de la gateway Loki pour `events` (qui lit le flux d'events Kubernetes que votre propre event-exporter envoie dans Loki). Indiquez **`-`** pour *n'autoriser aucun egress* : c'est le cas d'`analyst`, qui se contente de raisonner sur ce que les autres ont trouvé.
+- **`skill`** : un skill facultatif, issu du registry, à installer comme outil à part entière (par exemple un skill `@workshop/promql` qui fournit `promql(query)` au lieu d'appels `curl` écrits à la main). **`-`** signifie aucun skill : l'agent fonctionne quand même et interroge son backend en suivant les instructions de son `SOUL.md`. Pour en ajouter un, publiez-le comme dans la leçon *Skills et gouvernance*, puis inscrivez `@workshop/<name>` dans cette colonne.
 
-<Callout type="note" title="Colonnes séparées par des espaces, pas par des deux-points">
-Le backend est lui-même un <code>host:port</code> (il contient un deux-points) : les colonnes sont donc séparées par des <strong>espaces</strong>, pas par <code>:</code>. Alignez-les comme vous voulez ; <code>fleet.sh</code> lit les trois premiers champs. Les lignes qui commencent par <code>#</code> sont des commentaires.
+<Callout type="note" title="Des colonnes séparées par des espaces, pas par des deux-points">
+Le backend est lui-même de la forme <code>host:port</code> et contient donc un deux-points : les colonnes sont séparées par des <strong>espaces</strong>, et non par <code>:</code>. Alignez-les comme bon vous semble, <code>fleet.sh</code> lit les trois premiers champs. Les lignes qui commencent par <code>#</code> sont des commentaires.
 </Callout>
 
-## Le script : `scripts/fleet.sh`
+## Le script `scripts/fleet.sh`
 
-Pour chaque ligne, il crée une sandbox scellée (avec `--policy` et le provider d'inférence attaché), écrit une **policy limitée à ce seul backend** (tout le reste reste en deny-by-default, à part le registry de skills interne au cluster), dépose la persona de l'agent depuis `manifests/openclaw/fleet-roles/<name>/`, avec vos namespaces renseignés, et remet à l'agent un token de lecture de courte durée (24h) pour les backends de télémétrie, valable uniquement sur **vos** namespaces.
+Pour chaque ligne, le script :
 
-Lancez la fleet (la commande crée les sandboxes, restreint chaque policy et dépose chaque persona, en affichant la progression agent par agent). Dans ce lab, la fleet a été créée à l'avance : chaque agent affiche `already Ready — re-staging files only`, et la commande rafraîchit ses fichiers, sa policy et son token de télémétrie :
+- crée une sandbox isolée (avec `--policy` et le provider d'inférence attaché) ;
+- écrit une **policy limitée à ce seul backend**, plus le registry de skills interne au cluster (tout le reste reste en deny-by-default) ;
+- dépose la persona de l'agent depuis `manifests/openclaw/fleet-roles/<name>/`, en y renseignant vos namespaces ;
+- remet à l'agent un token de lecture de courte durée (24 h) pour les backends de télémétrie, valable uniquement sur **vos** namespaces.
+
+Lancez la fleet : la commande crée les sandboxes, restreint chaque policy, dépose chaque persona et affiche sa progression agent par agent. Dans ce lab, la fleet a été créée à l'avance : chaque agent affiche `already Ready — re-staging files only`, et la commande se contente de rafraîchir ses fichiers, sa policy et son token de télémétrie :
 
 ```bash
 ./scripts/fleet.sh up fleet.txt
 ```
 
-Puis regardez-les passer à Ready (`status` encapsule `openshell sandbox list`) :
+Suivez ensuite leur passage à l'état Ready (`status` s'appuie sur `openshell sandbox list`) :
 
 ```bash
 ./scripts/fleet.sh status
 ```
 
-### Regardez ce qui tourne
+### Observer ce qui tourne
 
-Voyez les **pods** des sandboxes sur le cluster (chaque agent est un pod scellé nommé `default--<agent>`, à côté d'un pod `os-supervisor-…`) :
+Affichez les **pods** des sandboxes dans le cluster (chaque agent est un pod isolé nommé `default--<agent>`, accompagné d'un pod `os-supervisor-…`) :
 
 ```bash
 oc get pods -n "$OPENSHELL_NS"
 ```
 
-La même fleet sous forme de **ressources personnalisées Sandbox** : la gateway en écrit une par agent, et le contrôleur agent-sandbox réconcilie chacune en son pod :
+La même fleet, vue sous forme de **ressources personnalisées Sandbox** : la gateway en crée une par agent, et le contrôleur agent-sandbox en dérive le pod correspondant :
 
 ```bash
 oc get sandboxes -n "$OPENSHELL_NS"
 ```
 
-Et la **vue propre de la gateway** sur la fleet (sa phase) : `openshell` parle à la gateway, pas à l'API Kubernetes :
+Et la fleet **vue par la gateway** elle-même, avec la phase de chaque sandbox : `openshell` interroge la gateway, et non l'API Kubernetes :
 
 ```bash
 openshell sandbox list
 ```
 
-Inspectez la **policy effective** d'un agent : la preuve que son egress est limité à son seul outil :
+Examinez la **policy effective** d'un agent : elle prouve que son egress se limite à son outil.
 
 ```bash
 openshell policy get metrics --full -o json
 ```
 
-Et suivez l'**audit trail** d'un agent : chaque décision d'egress le concernant, autorisée ou refusée :
+Suivez enfin la **piste d'audit** d'un agent, c'est-à-dire chaque décision d'egress le concernant, qu'elle l'autorise ou le bloque :
 
 ```bash
 openshell logs metrics --source sandbox
 ```
 
-Quand vous aurez **terminé l'atelier** et voudrez supprimer la fleet, lancez ceci (*ne* le lancez *pas* maintenant, cela démonte tout) :
+Lorsque vous aurez **terminé l'atelier** et voudrez supprimer la fleet, utilisez la commande ci-dessous. *Ne la lancez pas maintenant* : elle supprime tout.
 
 ```bash-ref
 ./scripts/fleet.sh down fleet.txt
 ```
 
-La policy écrite pour chaque agent est le point de gouvernance : elle est **propre à l'outil**. En plus du registry, l'agent `metrics` ne reçoit *que* ceci :
+C'est la policy écrite pour chaque agent qui assure la gouvernance : elle est **propre à son outil**. En dehors du registry, l'agent `metrics` n'a droit *qu'à* ceci :
 
 ```yaml
 network_policies:
@@ -88,11 +93,11 @@ network_policies:
     binaries: [ { path: /usr/bin/node }, { path: /usr/bin/curl } ]
 ```
 
-Ainsi, `metrics` peut joindre Thanos Querier et rien d'autre ; `logs` et `events` obtiennent chacun la gateway Loki et rien d'autre ; `analyst` n'obtient **aucun `tool-egress`**. Essayez de faire joindre à l'un le backend d'un autre : le proxy refuse, et c'est visible dans l'onglet **Décisions de policy** de la page [Live](/learn/live).
+`metrics` peut donc joindre Thanos Querier et rien d'autre ; `logs` et `events` n'ont accès qu'à la gateway Loki ; `analyst` n'a **aucun `tool-egress`**. Si un agent tente de joindre le backend d'un autre, le proxy refuse la connexion, et le refus apparaît dans l'onglet **Décisions de policy** de la page [Live](/learn/live).
 
-## La soul de chaque agent : son rôle
+## Un rôle par agent : les fichiers SOUL
 
-Ce sont les mêmes fichiers `IDENTITY.md` / `SOUL.md` que dans *Identité et soul*, un jeu par spécialiste, qui les font se comporter différemment. `fleet.sh` les dépose depuis `manifests/openclaw/fleet-roles/<name>/`. Voici l'essentiel de chacun (vous pouvez lire les fichiers complets sur la page [Fleet](/learn/fleet-status), chacun avec son chemin sur disque) :
+Ce sont les fichiers `IDENTITY.md` et `SOUL.md`, déjà rencontrés dans *Identité et personnalité*, qui différencient le comportement des spécialistes. Chacun a les siens, que `fleet.sh` dépose depuis `manifests/openclaw/fleet-roles/<name>/`. En voici l'essentiel (les fichiers complets, avec leur chemin sur le disque, sont consultables sur la page [La fleet en un coup d'œil](/learn/fleet-status)) :
 
 ```markdown
 # Scout 🔎 — logs/SOUL.md
@@ -115,25 +120,43 @@ Backend: Loki Operator gateway — but a DIFFERENT stream than Scout: the Kubern
 NO egress, NO tools. Reason only over the others' findings → conclude the root cause + recommend the fix.
 ```
 
-Ainsi, **`logs` et `events` partagent le backend Loki mais lisent des choses différentes** : Scout lit les lignes de log *de l'application* (`{kubernetes_namespace_name="<demo ns>"}`), tandis que Probe lit le flux d'events *du cluster* (la sortie du conteneur `event-exporter`), c'est-à-dire le récit que fait le plan de contrôle lui-même de ce qui a changé.
-Vos namespaces (<code><Ns which="demo" /></code> et <code><Ns which="openshell" /></code>) sont renseignés dans les fichiers SOUL par `fleet.sh` : dans un lab partagé, la fleet de chaque participant n'enquête donc que sur **sa propre** app de démo.
-**Identité + soul + une policy limitée à l'outil = un spécialiste**, et vous pouvez lire chaque ligne de ce qui le façonne.
+**`logs` et `events` partagent donc le backend Loki, mais n'y lisent pas la même chose** : Scout lit les
+lignes de log *de l'application* (`{kubernetes_namespace_name="<demo ns>"}`), tandis que Probe lit le flux d'events *du cluster*
+(la sortie du conteneur `event-exporter`), autrement dit ce que le control plane rapporte lui-même des changements.
+`fleet.sh` renseigne vos namespaces (<code><Ns which="demo" /></code> et <code><Ns which="openshell" /></code>) dans les fichiers SOUL :
+dans un lab partagé, la fleet de chaque participant n'enquête donc que sur **sa propre** application de démo.
+**Une identité, une SOUL et une policy limitée à un outil : voilà un spécialiste**, et chaque ligne de ce qui le définit est lisible.
 
-## Le skill `cluster-telemetry` : comment un agent scellé lit son backend
+## Le skill `cluster-telemetry` : comment un agent isolé lit son backend
 
-Il y a un piège que les SOUL ci-dessus passent sous silence : l'outil intégré `web_fetch` d'OpenClaw **refuse les adresses privées, internes et du cluster** (une protection contre le SSRF). Loki, Prometheus et Tempo vivent tous sur `*.svc.cluster.local` (des ClusterIP privées) : un agent scellé *ne peut donc pas* utiliser `web_fetch` pour les lire. C'est à cela que sert le **skill `cluster-telemetry`**. `fleet.sh` le dépose dans chaque agent qui a un backend, dans `/sandbox/.agents/skills/cluster-telemetry/` :
+Les SOUL ci-dessus passent une difficulté sous silence : l'outil `web_fetch` intégré à OpenClaw **refuse
+les adresses privées, internes ou du cluster** (une protection contre le SSRF). Or Loki, Prometheus et Tempo
+sont tous exposés sur `*.svc.cluster.local` (des ClusterIP privées) : un agent isolé *ne peut donc pas*
+les interroger avec `web_fetch`. C'est le rôle du **skill `cluster-telemetry`**, que `fleet.sh` dépose
+dans chaque agent doté d'un backend, sous `/sandbox/.agents/skills/cluster-telemetry/` :
 
-- **`SKILL.md`** : dit à l'agent que son backend est dans le cluster et qu'il ne doit donc pas utiliser `web_fetch`, mais ce skill via l'outil `exec`, lancer UNE seule requête et rapporter les valeurs concrètes.
-- **`tq.js`** : un petit script que l'agent lance sous la forme `node …/tq.js '<url>'`. Il fait appel à **`curl`** (un binaire autorisé en egress) : l'appel reste donc borné par la policy à backend unique de l'agent. **Rien n'est affaibli, la protection SSRF reste active partout ailleurs.** Il affiche ensuite un résumé *compact* (quelques lignes), et c'est important : renvoyer du JSON de télémétrie brut à un petit modèle sature son contexte. Il comprend les vecteurs Prometheus, les flux Loki et les recherches Tempo, et rend les events Kubernetes lisibles (`[Warning] Failed: Failed to pull image … (Pod/shop-…)`).
+- **`SKILL.md`** indique à l'agent que son backend se trouve dans le cluster et qu'il ne doit donc pas
+  utiliser `web_fetch`, mais ce skill, via l'outil `exec` : lancer UNE seule requête, puis rapporter les valeurs concrètes obtenues.
+- **`tq.js`** est un petit script que l'agent lance avec `node …/tq.js '<url>'`. Il délègue l'appel à **`curl`**,
+  un binaire autorisé en egress : la requête reste donc soumise à la policy de l'agent, limitée à un seul backend.
+  **Rien n'est affaibli : la protection contre le SSRF reste active partout ailleurs.** Le script affiche ensuite
+  un résumé *compact*, en quelques lignes. C'est important : renvoyer le JSON brut de la télémétrie à un petit modèle
+  saturerait sa fenêtre de contexte. Il sait lire les vecteurs Prometheus, les flux Loki et les résultats de recherche Tempo,
+  et présente les events Kubernetes de façon lisible (`[Warning] Failed: Failed to pull image … (Pod/shop-…)`).
 
-Chaque agent atteint donc son backend de la **même façon gouvernée**, avec `curl` sous sa policy d'egress, et vous pouvez lire tout le skill (`SKILL.md` plus un `tq.js` d'environ 140 lignes) dans `manifests/openclaw/skills/cluster-telemetry/`.
+Tous les agents accèdent ainsi à leur backend **de la même manière, sous contrôle** : avec `curl`, dans le cadre
+de leur policy d'egress. Le skill complet (`SKILL.md` et un `tq.js` d'environ 140 lignes) se trouve dans `manifests/openclaw/skills/cluster-telemetry/`.
 
-<Callout type="note" title="Deux sortes de « skill » : ne les confondez pas">
-Le skill <strong>cluster-telemetry</strong> ci-dessus est déposé automatiquement dans chaque agent (c'est <em>par lui</em> qu'ils lisent un backend). La colonne <code>skill</code> de <code>fleet.txt</code> est un point d'extension <em>distinct et optionnel</em> : un outil à part entière installé depuis votre registry privé (Partie V), par ex. <code>@workshop/promql</code>, qui fournit un outil typé <code>promql(query)</code>. Elle vaut <code>-</code> par défaut : les agents fonctionnent très bien avec seulement cluster-telemetry + leur SOUL.
+<Callout type="note" title="Deux sortes de skills à ne pas confondre">
+Le skill <strong>cluster-telemetry</strong> décrit ci-dessus est déposé automatiquement dans chaque agent : c'est
+<em>par lui</em> qu'ils lisent leur backend. La colonne <code>skill</code> de <code>fleet.txt</code> est un mécanisme
+<em>distinct et facultatif</em> : elle permet d'installer depuis votre registry privé (partie V) un outil à part entière,
+par exemple <code>@workshop/promql</code>, qui fournit un outil typé <code>promql(query)</code>. Elle vaut <code>-</code>
+par défaut : cluster-telemetry et la SOUL suffisent au bon fonctionnement des agents.
 </Callout>
 
-<Callout type="note" title="Pourquoi cela reste sûr à grande échelle">
-Ajouter un sixième agent, c'est une ligne de plus dans <code>fleet.txt</code> + un dossier de persona. La frontière de confiance ne s'élargit jamais : le nouvel agent atteint exactement un hôte de plus, cette autorisation figure dans sa policy, et chacun de ses appels figure dans l'audit log.
+<Callout type="note" title="Pourquoi la fleet peut grandir sans risque">
+Pour ajouter un sixième agent, il suffit d'une ligne de plus dans <code>fleet.txt</code> et d'un dossier de persona. Le périmètre de confiance ne s'élargit pas pour autant : le nouvel agent n'accède qu'à un seul hôte supplémentaire, cette autorisation figure dans sa policy, et chacun de ses appels est consigné dans l'audit log.
 </Callout>
 
-Lancez la fleet, vérifiez que `status` les montre Ready, puis passez au chapitre suivant pour les piloter.
+Lancez la fleet, vérifiez avec `status` que tous les agents sont Ready, puis passez au chapitre suivant pour les mettre au travail.
