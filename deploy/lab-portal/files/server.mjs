@@ -124,8 +124,9 @@ export class Registry {
   }
   async init() {
     const s = await this.store.load();
-    this.state = { assignments: {}, ...s };
+    this.state = { assignments: {}, unreserved: [], ...s };
     this.state.assignments ||= {};
+    this.state.unreserved ||= [];
   }
   byEmail(email) {
     for (const [user, a] of Object.entries(this.state.assignments)) if (a.email === email) return { user, ...a };
@@ -148,6 +149,14 @@ export class Registry {
     }
     if (this.dirty) await this.persist();
     return a;
+  }
+  // Reserved users (PORTAL_RESERVED) are never handed out unless an admin makes them available.
+  async setAvailable(user, available) {
+    const set = new Set(this.state.unreserved);
+    if (available) set.add(user); else set.delete(user);
+    this.state.unreserved = [...set].sort();
+    this.dirty = true;
+    await this.persist();
   }
   async release(user) {
     if (!this.state.assignments[user]) return false;
@@ -306,13 +315,21 @@ function messagePage(cfg, title, text) {
 
 function adminPage(cfg, host, registry, attendees, pool, notice) {
   const assigned = registry.state.assignments;
+  const unreserved = new Set(registry.state.unreserved);
+  const button = (action, u, label) => `<form method="post" action="/admin/${action}"><input type="hidden" name="user" value="${esc(u)}">
+<button class="btn small" type="submit">${label}</button></form>`;
   const users = [...new Set([...attendees.keys(), ...Object.keys(assigned)])].sort();
   const rows = users.map((u) => {
     const a = assigned[u];
+    const isReservedByDefault = cfg.reserved.includes(u);
     let status = pool.includes(u) ? (a ? "assigned" : "free") : (attendees.has(u) ? "reserved" : "not in attendees.csv");
+    if (isReservedByDefault && unreserved.has(u)) status += " (made available)";
+    if (a && !pool.includes(u)) status = "assigned (reserved)";
     if (a && !attendees.has(u)) status = "assigned, not in attendees.csv";
-    const release = a ? `<form method="post" action="/admin/release"><input type="hidden" name="user" value="${esc(u)}">
-<button class="btn small" type="submit">Release</button></form>` : "";
+    let release = a ? button("release", u, "Release") : "";
+    if (!a && isReservedByDefault && attendees.has(u)) {
+      release = unreserved.has(u) ? button("reserve", u, "Reserve again") : button("unreserve", u, "Make available");
+    }
     return `<tr${a ? ' class="assigned"' : ""}><td class="mono">${esc(u)}</td><td>${esc(status)}</td><td>${esc(a?.email)}</td>
 <td class="muted nowrap">${esc(a?.at?.replace("T", " ").slice(0, 16))}</td><td class="act">${release}</td></tr>`;
   }).join("\n");
@@ -331,7 +348,9 @@ ${notice ? `<div class="alert ok">${esc(notice)}</div>` : ""}
 <thead><tr><th>User</th><th>Status</th><th>Email</th><th>Assigned (UTC)</th><th></th></tr></thead>
 <tbody>${rows}</tbody></table></section>
 <p class="muted">Release frees an environment for the next attendee (the attendee's own link stops working). It does
-not reset the environment itself: run <code>scripts/lab.sh user userNN</code> or <code>lab.sh down</code> + redeploy for that.</p>`,
+not reset the environment itself: run <code>scripts/lab.sh user userNN</code> or <code>lab.sh down</code> + redeploy for that.
+Reserved environments (${esc(cfg.reserved.join(", ") || "none")}) are never handed out until you click <b>Make available</b>; the next
+sign-up then gets the lowest free one.</p>`,
   cfg.title, { wide: true });
 }
 
@@ -396,7 +415,8 @@ export async function startPortal(cfg, store, { port = cfg.port, host } = {}) {
   if (!cfg.eventCode) throw new Error("PORTAL_EVENT_CODE is required");
   if (!cfg.adminToken) throw new Error("PORTAL_ADMIN_TOKEN is required");
   const attendees = parseAttendees(cfg.attendeesCsv);
-  const pool = [...attendees.keys()].filter((u) => !cfg.reserved.includes(u)).sort();
+  const pool = () => [...attendees.keys()]
+    .filter((u) => !cfg.reserved.includes(u) || registry.state.unreserved.includes(u)).sort();
   const registry = new Registry(store);
   await registry.init();
   const failures = new Map(); // ip -> [timestamps]
@@ -443,7 +463,7 @@ export async function startPortal(cfg, store, { port = cfg.port, host } = {}) {
       }
       let a;
       try {
-        a = await registry.claim(email, pool);
+        a = await registry.claim(email, pool());
       } catch (e) {
         console.error(`claim failed: ${e.message}`);
         return send(res, 503, formPage(cfg, { error: "Could not save your registration. Please try again in a few seconds.", email }));
@@ -474,7 +494,7 @@ export async function startPortal(cfg, store, { port = cfg.port, host } = {}) {
         });
       }
       if (!isAdmin(req)) return send(res, 401, messagePage(cfg, "Admin", "Open the admin link printed by <code>scripts/lab.sh portal info</code>."));
-      return send(res, 200, adminPage(cfg, req.headers.host, registry, attendees, pool, url.searchParams.get("released") ? `Released ${url.searchParams.get("released")}.` : ""));
+      return send(res, 200, adminPage(cfg, req.headers.host, registry, attendees, pool(), url.searchParams.get("done") || ""));
     }
     if (path === "/admin/release" && req.method === "POST") {
       if (!isAdmin(req) || !sameOrigin(req)) return send(res, 403, messagePage(cfg, "Forbidden", "Admin only."));
@@ -486,7 +506,21 @@ export async function startPortal(cfg, store, { port = cfg.port, host } = {}) {
         return send(res, 503, messagePage(cfg, "Not saved", "Could not save the change. Reload the admin page and try again."));
       }
       console.log(`released ${user}`);
-      return send(res, 303, "", { Location: `/admin?released=${encodeURIComponent(user)}` });
+      return send(res, 303, "", { Location: `/admin?done=${encodeURIComponent(`Released ${user}.`)}` });
+    }
+    if ((path === "/admin/unreserve" || path === "/admin/reserve") && req.method === "POST") {
+      if (!isAdmin(req) || !sameOrigin(req)) return send(res, 403, messagePage(cfg, "Forbidden", "Admin only."));
+      const user = String((await readBody(req)).get("user") || "");
+      if (!cfg.reserved.includes(user)) return send(res, 400, messagePage(cfg, "Not reserved", "Only reserved environments can be made available or reserved again."));
+      const available = path === "/admin/unreserve";
+      try {
+        await registry.setAvailable(user, available);
+      } catch (e) {
+        console.error(`reserve change failed: ${e.message}`);
+        return send(res, 503, messagePage(cfg, "Not saved", "Could not save the change. Reload the admin page and try again."));
+      }
+      console.log(`${user} ${available ? "made available" : "reserved again"}`);
+      return send(res, 303, "", { Location: `/admin?done=${encodeURIComponent(`${user} ${available ? "is now available" : "is reserved again"}.`)}` });
     }
 
     return send(res, 404, messagePage(cfg, "Not found", "Nothing here."));

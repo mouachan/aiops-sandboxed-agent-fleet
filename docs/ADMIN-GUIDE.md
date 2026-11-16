@@ -264,7 +264,7 @@ An attendee scans the QR code (`https://join.<apps-domain>/`), enters their emai
 gets the next free environment on a page with all their links (workshop with its token, OpenClaw UI and
 password, Grafana) and the first steps. No email is sent: the page is the delivery. The same email always
 gets the same environment back, so a closed tab or another device is not a problem. `user01` is never
-handed out (`LAB_PORTAL_RESERVED`, space/comma-separated, empty = none).
+handed out (`LAB_PORTAL_RESERVED`, space/comma-separated, empty = none, e.g. `"user01 user02 user03 user04 user05"`). To give one out anyway, click **Make available** on the admin page (and **Reserve again** to take it back): the next sign-up gets the lowest free environment.
 
 - The portal has its own namespace and Helm release (`deploy/lab-portal`, stock UBI Node.js image, no
   build). It serves `.lab/attendees.csv`, refreshed by every `portal up`, and never changes an attendee's

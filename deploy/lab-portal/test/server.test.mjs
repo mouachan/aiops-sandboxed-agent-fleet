@@ -245,6 +245,31 @@ test("ConfigMap store: persists, sends the token, and recovers from an outside e
   } finally { await p.close(); kube.server.close(); }
 });
 
+test("reserved environments are handed out only once an admin makes them available", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lab-portal-"));
+  const store = new FileStore(join(dir, "state.json"));
+  const p = await portal(store, { reserved: ["user01", "user02", "user03"] });
+  const admin = (path, user) => fetch(`${p.url}/admin/${path}`, {
+    method: "POST", redirect: "manual", headers: { authorization: `Bearer ${ADMIN}` }, body: new URLSearchParams({ user }) });
+  try {
+    assert.equal(p.registry.byEmail("a@example.com"), null);
+    assert.equal((await claim(p, "a@example.com")).status, 303);
+    assert.equal(p.registry.byEmail("a@example.com").user, "user04");
+    assert.equal((await claim(p, "b@example.com")).status, 503); // only user04 was available
+    const page = await (await fetch(`${p.url}/admin`, { headers: { authorization: `Bearer ${ADMIN}` } })).text();
+    assert.match(page, /Make available/);
+    assert.equal((await admin("unreserve", "user04")).status, 400); // not a reserved one
+    assert.equal((await admin("unreserve", "user02")).status, 303);
+    assert.equal((await claim(p, "b@example.com")).status, 303);
+    assert.equal(p.registry.byEmail("b@example.com").user, "user02");
+    assert.equal((await admin("unreserve", "user03")).status, 303);
+    assert.equal((await admin("reserve", "user03")).status, 303);
+    assert.equal((await claim(p, "c@example.com")).status, 503);
+    const p2 = await portal(store, { reserved: ["user01", "user02", "user03"] });
+    try { assert.deepEqual(p2.registry.state.unreserved, ["user02"]); } finally { await p2.close(); }
+  } finally { await p.close(); rmSync(dir, { recursive: true, force: true }); }
+});
+
 test("helpers", () => {
   assert.equal(esc(`<a href="x">'&'</a>`), "&lt;a href=&quot;x&quot;&gt;&#39;&amp;&#39;&lt;/a&gt;");
   const rows = parseAttendees(CSV + "\n\n");
