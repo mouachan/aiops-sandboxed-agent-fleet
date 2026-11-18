@@ -310,6 +310,7 @@ single-instance `deploy.sh` and the original upstream version are a different st
 | Task | Command |
 |---|---|
 | Overall health | `scripts/lab.sh status` / `scripts/lab-smoke.sh` |
+| Rehearse the Incident Lab at full load | `scripts/lab-bench.sh [users…] [--stagger S]`: deploy, fault, fleet investigation and fix on every attendee at once, from a Job in a throwaway namespace; prints each attendee's diagnosis and the timings, and leaves the demo apps healthy. Run `scripts/lab.sh fleet` first if the fleet tokens (24 h) may have expired |
 | Who has which environment (sign-up portal) | `scripts/lab.sh portal list`, or the admin page (`scripts/lab.sh portal info`) |
 | An attendee lost their page | They scan the QR code again with the same email and the event code |
 | One attendee is broken | `scripts/lab.sh user userNN` (redeploys, keeps their token and password) |
@@ -340,6 +341,7 @@ Measured on a 9-attendee load test (one cluster, 3 × m5a.8xlarge lab nodes, 1 �
 | GPU (Nemotron 3 Nano FP8) | 9 simultaneous investigations in **61 s**, no queue (median prompt 3.9k tokens) | ≈ 2-4 min on 1 GPU (estimate) | 2 replicas halve it; or stagger "Investigate" |
 | `lab.sh up` | 9 attendees in ~3.5 min (5 in parallel) | ≈ 12 min | |
 | Fleet creation | 9 attendees in ~12 min (3 in parallel) | ≈ 40 min (pre-provision before the lab) | re-staging configs: ~20 s |
+| Incident Lab, all attendees at once (`scripts/lab-bench.sh`) | 25 attendees, external MaaS model: **25/25 right root cause**, investigation p50 101 s, p95 133 s, max 134 s, 0 retries; whole scenario 4 min | — | measured 2026-11-18; a model server that refuses bursts shows up here as failed or retried agents |
 
 **Storage that fills up over a multi-day lab** (found on a 25-attendee cluster after 9 days):
 
