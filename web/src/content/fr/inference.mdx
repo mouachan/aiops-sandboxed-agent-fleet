@@ -31,7 +31,7 @@ Vous devez voir s'afficher votre URL, votre modèle et les premiers caractères 
 Avant d'enregistrer l'endpoint, demandez au modèle une vraie réponse, en vous authentifiant avec votre clé :
 
 ```bash
-BODY=$(jq -n --arg m "$NEMOCLAW_MODEL" '{model:$m, max_tokens:200, messages:[{role:"user", content:"Reply with exactly: PONG"}]}')
+BODY=$(jq -n --arg m "$NEMOCLAW_MODEL" '{model:$m, max_tokens:1000, messages:[{role:"user", content:"Reply with exactly: PONG"}]}')
 curl -sS "$NEMOCLAW_INFERENCE_BASE_URL/chat/completions" -H "Authorization: Bearer $NEMOCLAW_API_KEY" \
   -H "Content-Type: application/json" -d "$BODY" | jq -r '.choices[0].message.content // .error'
 ```

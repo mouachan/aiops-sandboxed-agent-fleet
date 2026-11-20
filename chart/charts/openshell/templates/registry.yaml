@@ -80,17 +80,21 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: { drop: ["ALL"] }
+          # TCP probes: Verdaccio is single-threaded and answers /-/ping late while it serves a
+          # skill install (~1 core). An HTTP probe then pulls the only replica out of the Service
+          # or restarts it mid-install; a TCP probe only fails when the process stops listening.
           readinessProbe:
-            httpGet: { path: /-/ping, port: 4873 }
+            tcpSocket: { port: 4873 }
             initialDelaySeconds: 5
             periodSeconds: 5
           livenessProbe:
-            httpGet: { path: /-/ping, port: 4873 }
+            tcpSocket: { port: 4873 }
             initialDelaySeconds: 20
             periodSeconds: 20
+            failureThreshold: 6
           resources:
             requests: { cpu: 50m, memory: 128Mi }
-            limits: { memory: 512Mi }
+            limits: { memory: 1Gi }
           volumeMounts:
             - { name: storage, mountPath: /verdaccio/storage }
             - { name: config, mountPath: /verdaccio/conf }

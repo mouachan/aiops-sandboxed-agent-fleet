@@ -31,7 +31,7 @@ You should see your URL and model, and the key's first few characters (we don't 
 Before registering it, ask the model for a real answer, authenticated with your key:
 
 ```bash
-BODY=$(jq -n --arg m "$NEMOCLAW_MODEL" '{model:$m, max_tokens:200, messages:[{role:"user", content:"Reply with exactly: PONG"}]}')
+BODY=$(jq -n --arg m "$NEMOCLAW_MODEL" '{model:$m, max_tokens:1000, messages:[{role:"user", content:"Reply with exactly: PONG"}]}')
 curl -sS "$NEMOCLAW_INFERENCE_BASE_URL/chat/completions" -H "Authorization: Bearer $NEMOCLAW_API_KEY" \
   -H "Content-Type: application/json" -d "$BODY" | jq -r '.choices[0].message.content // .error'
 ```
